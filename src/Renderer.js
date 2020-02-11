@@ -24,6 +24,7 @@ class Renderer extends Component {
       cursorWidth: 0,
       cursorStyle: "bar"
     });
+    window.term = terminal;
     terminal.open(terminalElementRef);
     this.setState({
       terminal,
