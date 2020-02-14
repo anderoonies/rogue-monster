@@ -1,29 +1,58 @@
-const c = require("chalk");
-const chalk = new c.Instance({ enabled: true, level: 3 });
+import React from "react";
+import { DIM_THRESHOLD, DARK_THRESHOLD, DARKNESS_MAX } from "./light";
 
-export default function Cell(character, color, bg) {
-  return chalk.bgHex(bg ? bg : "#eee").hex(color ? color : "#aaa")(character);
+const colors = {
+    floor: "#ece3e3",
+    wall: "#6d6d6d",
+    player: "#299c32",
+    rock: "#6d6d6d"
+};
+
+const letters = {
+    floor: ",",
+    rock: "#",
+    wall: "#",
+    player: "x"
+};
+
+export default function Cell({ type, letter, light, memory, row, col }) {
+    const color = colors[type];
+    let bgColor = shadeHexColor(color, light);
+    if (light === DARKNESS_MAX && memory) {
+        type = memory.type;
+        letter = memory.type;
+        bgColor = 'darkblue';
+    }
+    return (
+        <div
+            className={`cell ${type}`}
+            key={`row${row}col${col}`}
+            style={{ backgroundColor: bgColor }}
+            light={light}
+            type={type}
+        >
+            {letters[type]}
+        </div>
+    );
 }
 
-const floorCell = Cell(".", shadeHexColor("#eee", .6), "#ddd");
-export { floorCell };
+function shadeHexColor(color, darkness) {
+    const decimal = Math.round(darkness / DARKNESS_MAX * 6) / 6;
+    const f = parseInt(color.slice(1), 16);
+    // const t = percent < 0 ? 0 : 255;
+    // const p = percent < 0 ? percent * -1 : percent;
+    const componentToHex = c => {
+        const hex = c.toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+    };
 
-function shadeHexColor(color, percent) {
-  var f = parseInt(color.slice(1), 16),
-    t = percent < 0 ? 0 : 255,
-    p = percent < 0 ? percent * -1 : percent,
-    R = f >> 16,
-    G = (f >> 8) & 0x00ff,
-    B = f & 0x0000ff;
-  return (
-    "#" +
-    (
-      0x1000000 +
-      (Math.round((t - R) * p) + R) * 0x10000 +
-      (Math.round((t - G) * p) + G) * 0x100 +
-      (Math.round((t - B) * p) + B)
-    )
-      .toString(16)
-      .slice(1)
-  );
+    const R = f >> 16;
+    const G = (f >> 8) & 0x00ff;
+    const B = f & 0x0000ff;
+    return (
+        "#" +
+        componentToHex(Math.round(R - R * decimal, 2)) +
+        componentToHex(Math.round(G - G * decimal, 2)) +
+        componentToHex(Math.round(B - B * decimal, 2))
+    );
 }

@@ -1,62 +1,66 @@
 import React, { Component, useState, useEffect } from "react";
+import "./App.css";
+import Cell from "./Cell";
 import { Terminal } from "xterm";
 import { connect } from "react-redux";
-import { keyUp, keyDown, resize } from "./actions";
+import {
+    keyUp,
+    keyDown,
+    resize,
+    triangulate,
+    init,
+    moveLeft,
+    moveRight,
+    moveUp,
+    moveDown
+} from "./actions";
 
-const chalk = require("chalk");
-const c = new chalk.Instance({ enabled: true, level: 3 });
-window.c = c;
-
-class Renderer extends Component {
-  constructor({ state, dispatch }) {
-    super({ state, dispatch });
-    this.state = {
-      terminal: undefined,
-      height: 0,
-      width: 0
-    };
-  }
-
-  componentDidMount() {
-    const terminalElementRef = document.getElementById("terminal");
-    const terminal = new Terminal({
-      disableStdin: true,
-      cursorWidth: 0,
-      cursorStyle: "bar"
+const Renderer = ({ state, dispatch }) => {
+    useEffect(() => {
+        dispatch(init());
+    }, []);
+    useEffect(() => {
+        window.addEventListener("keydown", e => {
+            // debugger;
+            switch (e.code) {
+                case "ArrowRight":
+                    dispatch(moveRight());
+                    break;
+                case "ArrowLeft":
+                    dispatch(moveLeft());
+                    break;
+                case "ArrowUp":
+                    dispatch(moveUp());
+                    break;
+                case "ArrowDown":
+                    dispatch(moveDown());
+                    break;
+                case "KeyD":
+                    dispatch(moveRight());
+                    break;
+                case "KeyA":
+                    dispatch(moveLeft());
+                    break;
+                case "KeyW":
+                    dispatch(moveUp());
+                    break;
+                case "KeyS":
+                    dispatch(moveDown());
+                    break;
+            }
+        });
+    }, []);
+    return state.fov.map((row, rowIndex) => {
+        return state.settled ? (
+            <div className="row">
+                {row.map((cell, colIndex) => {
+                    return Cell({ ...cell, row: rowIndex, col: colIndex });
+                })}
+            </div>
+        ) : (
+            <div>Making dungeon...</div>
+        );
     });
-    window.term = terminal;
-    terminal.open(terminalElementRef);
-    this.setState({
-      terminal,
-      width: terminal.cols,
-      height: terminal.rows
-    });
-
-    function downHandler({ key }) {
-      this.props.dispatch(keyDown(key));
-    }
-
-    const upHandler = ({ key }) => {
-      this.props.dispatch(keyUp(key));
-    };
-    window.addEventListener("keydown", downHandler);
-    window.addEventListener("keyup", upHandler);
-    // Remove event listeners on cleanup
-    return () => {
-      window.removeEventListener("keydown", downHandler);
-      window.removeEventListener("keyup", upHandler);
-    };
-  }
-
-  componentDidUpdate(nextProps) {
-    this.props.state.dungeon.forEach((row, rowIndex) => {
-      row.forEach(cell => this.state.terminal.write(cell));
-    });
-  }
-
-  render() {
-    return [];
-  }
-}
+};
 
 export default connect(state => ({ state }))(Renderer);

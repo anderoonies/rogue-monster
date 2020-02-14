@@ -1,0 +1,15 @@
+{
+  "name": "levels",
+  "version": "1.0.0",
+  "description": "",
+  "main": "levelCreator.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "delaunator": "^4.0.1"
+  }
+}
