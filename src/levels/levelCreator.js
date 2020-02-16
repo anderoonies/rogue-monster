@@ -1,18 +1,19 @@
 // this module implements procedural dungeon generation using the techniques in
 // https://gamasutra.com/blogs/AAdonaac/20150903/252889/Procedural_Dungeon_Generation_Algorithm.php
+// import {WIDTH, HEIGHT} from './constants'
 const Delaunator = require("delaunator").default;
 
 const CELL_WIDTH = 1;
-const MAX_WIDTH = 20;
-const MAX_HEIGHT = 25;
-const MIN_WIDTH = 5;
-const MIN_HEIGHT = 5;
+const WIDTH = 200;
+const HEIGHT = 100;
+const MAX_WIDTH = 10;
+const MAX_HEIGHT = 10;
+const MIN_WIDTH = 2;
+const MIN_HEIGHT = 2;
 const MAX_WIDTH_TO_HEIGHT = 2;
 const MIN_WIDTH_TO_HEIGHT = 1 / 2;
-const GRID_WIDTH = 100;
-const GRID_HEIGHT = 100;
-const RELAXATION_TIME = 10;
-const JITTER = 1;
+const IMPORTANT_WIDTH = 3;
+const IMPORTANT_HEIGHT = 3;
 const FORCE_SCALE = 10;
 
 const MAX_INT32 = 2147483647;
@@ -51,10 +52,14 @@ Vector.prototype.add = function(v) {
 };
 
 Vector.prototype.subtract = function(v) {
-    return new Vector({
-        x: this.x - v.x,
-        y: this.y - v.y
-    });
+    try {
+        return new Vector({
+            x: this.x - v.x,
+            y: this.y - v.y
+        });
+    } catch (e) {
+        debugger;
+    }
 };
 
 Vector.prototype.length = function() {
@@ -74,19 +79,19 @@ Vector.prototype.scale = function(v) {
 
 const bound = ({ top, left, bottom, right }) => {
     return {
-        top: snap(Math.min(top, GRID_HEIGHT)),
+        top: snap(Math.min(top, HEIGHT)),
         left: snap(Math.max(0, left)),
-        right: snap(Math.min(right, GRID_WIDTH)),
+        right: snap(Math.min(right, WIDTH)),
         bottom: snap(Math.max(0, bottom))
     };
 };
 
 const boundX = value => {
-    return Math.max(0, Math.min(GRID_WIDTH - 1, value));
+    return Math.max(0, Math.min(WIDTH - 1, value));
 };
 
 const boundY = value => {
-    return Math.max(0, Math.min(GRID_HEIGHT - 1, value));
+    return Math.max(0, Math.min(HEIGHT - 1, value));
 };
 
 const snap = distance => {
@@ -105,13 +110,11 @@ const middle = (a, b) => {
 
 const cartesianToGrid = ({ x, y }) => {
     return {
-        x: boundX(snap(x + Math.floor(GRID_WIDTH / 2))),
-        y: boundY(snap(Math.floor(GRID_HEIGHT / 2) - y))
+        x: boundX(snap(x + Math.floor(WIDTH / 2))),
+        y: boundY(snap(Math.floor(HEIGHT / 2) - y))
     };
 };
 
-// returns an array of objects with shape
-// { top: number, bottom: number, left: number, right: number }
 const generateRooms = ({ radius, nRooms }) => {
     const randomPointInCircle = radius => {
         const angle = Math.random() * 2 * Math.PI;
@@ -127,26 +130,21 @@ const generateRooms = ({ radius, nRooms }) => {
 
     const rooms = new Array(nRooms).fill(undefined).map((_, index) => {
         const center = randomPointInCircle(radius);
-        const width = Math.round(randn(MIN_WIDTH, MAX_WIDTH, 2));
-        const height = Math.round(
-            Math.max(
-                3,
-                width * randn(MIN_WIDTH_TO_HEIGHT, MAX_WIDTH_TO_HEIGHT, 2)
-            )
-        );
+        const width = Math.floor(randn(MIN_WIDTH, 10, 2));
+        const height = Math.floor(randn(MIN_WIDTH, 10, 2));
         let leftEdge = Math.round(center.x - width / 2);
         let rightEdge = Math.round(center.x + width / 2);
         let topEdge = Math.round(center.y - height / 2);
         let bottomEdge = Math.round(center.y + height / 2);
 
         // snap to edges properly
-        if (bottomEdge >= GRID_HEIGHT) {
-            bottomEdge = GRID_HEIGHT;
+        if (bottomEdge >= HEIGHT) {
+            bottomEdge = HEIGHT;
             topEdge = bottomEdge - height;
         }
 
-        if (rightEdge >= GRID_WIDTH) {
-            rightEdge = GRID_WIDTH;
+        if (rightEdge >= WIDTH) {
+            rightEdge = WIDTH;
             leftEdge = rightEdge - width;
         }
 
@@ -166,7 +164,7 @@ const generateRooms = ({ radius, nRooms }) => {
             bottom: boundY(bottomEdge),
             left: boundX(leftEdge),
             right: boundX(rightEdge),
-            center: center,
+            center: center
         };
 
         return {
@@ -174,17 +172,29 @@ const generateRooms = ({ radius, nRooms }) => {
         };
     });
 
+    return rooms;
+};
+
+// returns an array of objects with shape
+// { top: number, bottom: number, left: number, right: number }
+const finalizeRooms = ({ radius, nRooms }) => {
+    const rooms = generateRooms({ radius, nRooms });
     let [relaxedRooms, updated] = relaxRooms(rooms);
     let nRelaxations = 0;
     while (nRelaxations < 1000 && updated) {
         [relaxedRooms, updated] = relaxRooms(relaxedRooms);
         nRelaxations++;
     }
-    const edges = triangulate(relaxedRooms);
-    const spannedRooms = bfs(relaxedRooms, edges);
-    const hallwayRooms = hallways(spannedRooms);
-    return [relaxedRooms, hallwayRooms];
+    return [relaxedRooms, makeHallways(relaxedRooms)];
 };
+
+const makeHallways = rooms => {
+    const { edges, importantRooms } = triangulate(rooms);
+    const spannedRooms = bfsPlusExtra(rooms, edges);
+    const hallwayRooms = hallways(spannedRooms);
+    return hallwayRooms;
+};
+
 const intersect = (roomA, roomB) => {
     return !(
         roomA.right < roomB.left ||
@@ -223,7 +233,6 @@ const relaxRooms = rooms => {
                     collisions[j].indexOf(i) > 0 ||
                     collisions[i].indexOf(j) > 0
                 ) {
-                    // alert(`${j} already hit ${i}!`);
                     continue;
                 }
                 collisions[j].push(i);
@@ -249,7 +258,10 @@ const relaxRooms = rooms => {
                             ? separation.y - agentHeight
                             : separation.y + agentHeight
                 });
-                const totalForce = agent.force.add(pushForce.div(FORCE_SCALE));
+                const mass = agentWidth * agentHeight;
+                const totalForce = agent.force.add(
+                    pushForce.div(FORCE_SCALE).div(mass)
+                );
                 agent.force = totalForce;
                 updated = true;
                 agent.neighbors++;
@@ -267,7 +279,6 @@ const relaxRooms = rooms => {
         agent.force = agent.force.div(Math.max(1, agent.neighbors));
     }
     for (let i = 0; i < roomBodies.length; i++) {
-        // debugger;
         let room = rooms[i];
         let body = roomBodies[i];
         let force = { x: snap(body.force.x), y: snap(body.force.y) };
@@ -288,11 +299,20 @@ const relaxRooms = rooms => {
 };
 
 const triangulate = rooms => {
-    const centers = rooms.map(room => {
+    const importantRooms = rooms.filter(room => {
+        const width = room.right - room.left;
+        const height = room.bottom - room.top;
+        return (
+            width >= IMPORTANT_WIDTH &&
+            height >= IMPORTANT_HEIGHT &&
+            width / height > 0.5
+        );
+    });
+    const centers = importantRooms.map(room => {
         return [room.center.x, room.center.y];
     });
-    const centerToRoom = rooms.reduce((acc, room, index) => {
-        acc[`${room.center.x},${room.center.y}`] = index;
+    const centerToRoomIndex = importantRooms.reduce((acc, room) => {
+        acc[`${room.center.x},${room.center.y}`] = room.index;
         return acc;
     }, {});
     const delaunay = Delaunator.from(centers);
@@ -308,38 +328,45 @@ const triangulate = rooms => {
         let center1 = centers[triangles[i]];
         let center2 = centers[triangles[i + 1]];
         let center3 = centers[triangles[i + 2]];
-        let room1 = centerToRoom[`${center1[0]},${center1[1]}`];
-        let room2 = centerToRoom[`${center2[0]},${center2[1]}`];
-        let room3 = centerToRoom[`${center3[0]},${center3[1]}`];
-        edges.push([room1, room2], [room2, room3], [room3, room1]);
+        let room1Index = centerToRoomIndex[`${center1[0]},${center1[1]}`];
+        let room2Index = centerToRoomIndex[`${center2[0]},${center2[1]}`];
+        let room3Index = centerToRoomIndex[`${center3[0]},${center3[1]}`];
+        edges.push(
+            [room1Index, room2Index],
+            [room2Index, room3Index],
+            [room3Index, room1Index]
+        );
     }
-    return edges;
+    return { edges, importantRooms };
 };
 
-const bfs = (rooms, edges) => {
+const bfsPlusExtra = (rooms, edges) => {
     // nodes = {
     //     roomIndex: {
-    //         parentIndex: null,
+    //         parents: [roomIndex],
     //         visited: boolean,
     //         neighbors: [room]
     //     }
     // }
     let nodes = rooms.reduce((acc, room, index) => {
         acc[room.index] = {
-            parentIndex: null,
+            parents: [],
             visited: false,
             neighbors: [],
-            index
+            index: room.index
         };
+        return acc;
+    }, {});
+
+    let roomLookup = rooms.reduce((acc, room) => {
+        acc[room.index] = room;
         return acc;
     }, {});
 
     // edges =  {
     //     roomIndex: [room]
     // }
-    // debugger;
-    nodes = edges.reduce((acc, [left, right], i) => {
-        // debugger;
+    nodes = edges.reduce((acc, [left, right]) => {
         acc[left].neighbors.push(nodes[right]);
         return acc;
     }, nodes);
@@ -358,137 +385,149 @@ const bfs = (rooms, edges) => {
     // 12                 w.parent := v
     // 13                 Q.enqueue(w)
     let queue = [];
-    nodes[0].visited = true;
-    queue.push(nodes[0]);
+    let start = nodes[Object.keys(nodes)[0]];
+    start.visited = true;
+    queue.push(start);
     while (queue.length) {
         let v = queue.shift();
         let neighbors = v.neighbors;
         neighbors.forEach(neighbor => {
             if (!neighbor.visited) {
                 neighbor.visited = true;
-                neighbor.parentIndex = v.index;
+                neighbor.parents.push(v.index);
                 queue.push(neighbor);
             }
         });
     }
-
-    // annotate parents
-    const annotatedRooms = rooms.map((room, roomIndex) => {
-        return { ...room, parent: rooms[nodes[roomIndex].parentIndex] };
+    edges.forEach(([left, right]) => {
+        if (Math.random() < 0.1) {
+            nodes[left].parents.push(
+                right
+            );
+        }
     });
+    // annotate parents on the [rooms] array
+    const annotatedRooms = rooms.map(room => {
+        let parents = nodes[room.index].parents.map(idx => {
+            return roomLookup[idx];
+        });
+        return { ...room, parents };
+    });
+
     return annotatedRooms;
 };
 
 const hallways = rooms => {
-    let hallways = rooms.map(room => {
-        const parent = room.parent;
-        if (!parent) {
-            return;
-        }
-        let hall;
-        const [topRoom, bottomRoom] =
-            room.bottom < parent.top ? [room, parent] : [parent, room];
-        const [leftRoom, rightRoom] =
-            room.right < parent.left ? [room, parent] : [parent, room];
-
-        if (
-            // (topRoom.right <= bottomRoom.right &&
-            //     topRoom.right >= bottomRoom.left) ||
-            // (topRoom.left >= bottomRoom.left && topRoom.left <= bottomRoom.right)
-            between(topRoom.left, bottomRoom.left, bottomRoom.right - 1) ||
-            between(topRoom.right, bottomRoom.left, bottomRoom.right - 1) ||
-            between(bottomRoom.right, topRoom.left, topRoom.right - 1) ||
-            between(bottomRoom.right, topRoom.left, topRoom.right - 1)
-        ) {
-            // |______|
-            //    ______
-            //   |      |
-            //  or
-            //   |______|
-            // ______
-            //|      |
-
-            // debugger;
-            // vertical hallway 1
-            const hallX = Math.min(
-                Math.max(rightRoom.left, leftRoom.left),
-                Math.min(rightRoom.right, leftRoom.right)
-            );
-            return {
-                bottom: boundY(bottomRoom.top),
-                top: boundY(topRoom.bottom),
-                orientation: "vertical",
-                x: boundX(hallX),
-                debugName: `${bottomRoom.index}${topRoom.index}`
-            };
-        } else if (
-            // (leftRoom.bottom <= rightRoom.bottom &&
-            //     leftRoom.bottom >= rightRoom.top) ||
-            // (leftRoom.top <= rightRoom.bottom && leftRoom.top >= rightRoom.top)
-            between(leftRoom.top, rightRoom.bottom, rightRoom.top) ||
-            between(leftRoom.bottom, rightRoom.bottom, rightRoom.top) ||
-            between(rightRoom.bottom, leftRoom.bottom, leftRoom.top) ||
-            between(rightRoom.top, leftRoom.bottom, leftRoom.top)
-        ) {
-            // _
-            //  |  _
-            //  | |
-            // _| |
-            //    |_
-            //
-            //  or
-            //
-            //     _
-            //    |
-            // _  |
-            //  | |_
-            //  |
-            // _|
-            // debugger;
-            const hallY = middle(topRoom.bottom, bottomRoom.top);
-            return {
-                left: boundX(leftRoom.right),
-                right: boundX(rightRoom.left),
-                orientation: "horizontal",
-                y: boundY(hallY),
-                debugName: `${leftRoom.index}${rightRoom.index}`
-            };
-        } else {
-            // elbow
-            const [leftRoom, rightRoom] =
-                room.left < parent.left ? [room, parent] : [parent, room];
+    // im just a kid and this code is a nightmare
+    let hallways = rooms.reduce((halls, room) => {
+        const parents = room.parents;
+        const roomHalls = parents.map(parent => {
+            if (!parent) {
+                return;
+            }
+            let hall;
             const [topRoom, bottomRoom] =
                 room.bottom < parent.top ? [room, parent] : [parent, room];
+            const [leftRoom, rightRoom] =
+                room.right < parent.left ? [room, parent] : [parent, room];
 
-            // RIGHT MAJOR
-            // LT --
-            //      |
-            //      RB
-            //  or
-            //      RT
-            //      |
-            // LB --
+            if (
+                // (topRoom.right <= bottomRoom.right &&
+                //     topRoom.right >= bottomRoom.left) ||
+                // (topRoom.left >= bottomRoom.left && topRoom.left <= bottomRoom.right)
+                between(topRoom.left, bottomRoom.left, bottomRoom.right - 1) ||
+                between(topRoom.right, bottomRoom.left, bottomRoom.right - 1) ||
+                between(bottomRoom.right, topRoom.left, topRoom.right - 1) ||
+                between(bottomRoom.right, topRoom.left, topRoom.right - 1)
+            ) {
+                // |______|
+                //    ______
+                //   |      |
+                //  or
+                //   |______|
+                // ______
+                //|      |
+                // vertical hallway 1
+                const hallX = Math.min(
+                    Math.max(rightRoom.left, leftRoom.left),
+                    Math.min(rightRoom.right, leftRoom.right)
+                );
+                return {
+                    bottom: boundY(bottomRoom.top),
+                    top: boundY(topRoom.bottom),
+                    orientation: "vertical",
+                    x: boundX(hallX),
+                    debugName: `${bottomRoom.index}${topRoom.index}`
+                };
+            } else if (
+                // (leftRoom.bottom <= rightRoom.bottom &&
+                //     leftRoom.bottom >= rightRoom.top) ||
+                // (leftRoom.top <= rightRoom.bottom && leftRoom.top >= rightRoom.top)
+                between(leftRoom.top, rightRoom.bottom, rightRoom.top) ||
+                between(leftRoom.bottom, rightRoom.bottom, rightRoom.top) ||
+                between(rightRoom.bottom, leftRoom.bottom, leftRoom.top) ||
+                between(rightRoom.top, leftRoom.bottom, leftRoom.top)
+            ) {
+                // _
+                //  |  _
+                //  | |
+                // _| |
+                //    |_
+                //
+                //  or
+                //
+                //     _
+                //    |
+                // _  |
+                //  | |_
+                //  |
+                // _|
+                const hallY = middle(topRoom.bottom, bottomRoom.top);
+                return {
+                    left: boundX(leftRoom.right),
+                    right: boundX(rightRoom.left),
+                    orientation: "horizontal",
+                    y: boundY(hallY),
+                    debugName: `${leftRoom.index}${rightRoom.index}`
+                };
+            } else {
+                // elbow
+                const [leftRoom, rightRoom] =
+                    room.left < parent.left ? [room, parent] : [parent, room];
+                const [topRoom, bottomRoom] =
+                    room.bottom < parent.top ? [room, parent] : [parent, room];
 
-            // LEFT MAJOR
-            //  -- RT
-            // |
-            // LB
-            //  or
-            // LT
-            //  |
-            //   -- RB
-            return {
-                orientation: "elbow",
-                major: Math.random() > 0.5 ? "right" : "left",
-                lx: boundX(leftRoom.center.x),
-                rx: boundX(rightRoom.center.x),
-                ry: boundY(rightRoom.center.y),
-                ly: boundY(leftRoom.center.y)
-            };
-        }
-    });
+                // RIGHT MAJOR
+                // LT --
+                //      |
+                //      RB
+                //  or
+                //      RT
+                //      |
+                // LB --
+
+                // LEFT MAJOR
+                //  -- RT
+                // |
+                // LB
+                //  or
+                // LT
+                //  |
+                //   -- RB
+                return {
+                    orientation: "elbow",
+                    major: Math.random() > 0.5 ? "right" : "left",
+                    lx: boundX(leftRoom.center.x),
+                    rx: boundX(rightRoom.center.x),
+                    ry: boundY(rightRoom.center.y),
+                    ly: boundY(leftRoom.center.y)
+                };
+            }
+        });
+        return halls.concat(roomHalls);
+    }, []);
     window.rooms = rooms;
-    return hallways;
+    return hallways.filter(hall => hall !== undefined);
 };
 
 module.exports = {
@@ -496,7 +535,11 @@ module.exports = {
     triangulate,
     boundX,
     boundY,
-    CELL_WIDTH
+    finalizeRooms,
+    relaxRooms,
+    makeHallways,
+    bfsPlusExtra,
+    hallways
 };
 
 // const draw = rooms => {

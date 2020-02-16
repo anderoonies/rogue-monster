@@ -22,17 +22,38 @@ export function resize(dimensions) {
     }
 }
 
-export const RELAX = 'RELAX';
-export function relax() {
+export const DEBUG_RELAX = 'DEBUG_RELAX';
+export function debugRelax() {
     return {
-        type: RELAX
+        type: DEBUG_RELAX
     }
 }
 
-export const TRIANGULATE = 'TRIANGULATE';
-export function triangulate() {
+export const DEBUG_HALLWAYS = 'DEBUG_HALLWAYS';
+export function debugHallways() {
     return {
-        type: TRIANGULATE
+        type: DEBUG_HALLWAYS
+    }
+}
+
+export const DEBUG_INIT = 'DEBUG_INIT';
+export function debugInit() {
+    return {
+        type: DEBUG_INIT
+    }
+}
+
+export const DEBUG_EDGES = 'DEBUG_EDGES';
+export function debugEdges() {
+    return {
+        type: DEBUG_EDGES
+    }
+}
+
+export const DEBUG_TRIANGULATE = 'DEBUG_TRIANGULATE';
+export function debugTriangulate() {
+    return {
+        type: DEBUG_TRIANGULATE
     }
 }
 

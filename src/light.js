@@ -1,10 +1,11 @@
-import { CELL_WIDTH } from "./levels/levelCreator";
+import { CELL_WIDTH } from "./constants";
 
-export const BRIGHT_THRESHOLD = 10;
-export const DIM_THRESHOLD = 30;
-export const DARK_THRESHOLD = 60;
-export const DARKNESS_MAX = 100;
-
+import {
+    BRIGHT_THRESHOLD,
+    DIM_THRESHOLD,
+    DARK_THRESHOLD,
+    DARKNESS_MAX
+} from "./constants";
 // http://www.roguebasin.com/index.php?title=FOV_using_recursive_shadowcasting
 //              Shared
 //             edge by
@@ -52,9 +53,7 @@ const cast = ({
     player,
     dungeon,
     light,
-    memory,
-    leftOffset,
-    topOffset
+    memory
 }) => {
     let currentCol;
     let previousWasBlocked = false;
@@ -82,18 +81,12 @@ const cast = ({
             }
 
             let distance = Math.min(DARKNESS_MAX, Math.max(xc * xc + yc * yc));
-            light[gridY][gridX] = distance
+            light[gridY][gridX] = distance;
             if (distance <= DARK_THRESHOLD) {
-                debugger;
-                try {
-                    memory[gridY + topOffset][gridX + leftOffset] =
-                        dungeon[gridY][gridX];
-                } catch (e) {
-                    debugger;
-                }
+                memory[gridY][gridX] = dungeon[gridY][gridX];
             }
-
-            let currentlyBlocked = dungeon[gridY][gridX].type !== "floor";
+            let currentlyBlocked;
+            currentlyBlocked = dungeon[gridY][gridX].type !== "floor";
             if (previousWasBlocked) {
                 if (currentlyBlocked) {
                     // keep traversing
@@ -113,9 +106,7 @@ const cast = ({
                             player,
                             dungeon,
                             light,
-                            memory,
-                            leftOffset,
-                            topOffset
+                            memory
                         });
                     }
 
@@ -131,13 +122,15 @@ const cast = ({
     }
 };
 
-export const scan = (player, dungeon, memory, leftOffset, topOffset) => {
+export const scan = (player, dungeon) => {
     // we're viewing a FOV of the dungeon, but memory is everything, so we need to offset
     let updatedLight = new Array(dungeon.length)
         .fill(DARKNESS_MAX)
         .map(() => new Array(dungeon[0].length).fill(DARKNESS_MAX));
     updatedLight[player.y][player.x] = 0;
-    let updatedMemory = [...memory];
+    let updatedMemory = new Array(dungeon.length)
+        .fill(undefined)
+        .map(() => new Array(dungeon[0].length).fill(undefined));
     for (var octant = 0; octant < 8; octant++) {
         cast({
             startColumn: 1,
@@ -147,11 +140,8 @@ export const scan = (player, dungeon, memory, leftOffset, topOffset) => {
             player,
             dungeon,
             light: updatedLight,
-            memory: updatedMemory,
-            leftOffset,
-            topOffset
+            memory: updatedMemory
         });
     }
-    console.log(updatedMemory);
-    return { lightMap: updatedLight, updatedMemory };
+    return { lightMap: updatedLight, memory: updatedMemory };
 };

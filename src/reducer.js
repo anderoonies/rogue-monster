@@ -4,25 +4,29 @@ import {
     MOVE_UP,
     MOVE_DOWN,
     RESIZE,
-    RELAX,
-    TRIANGULATE,
-    INIT
+    DEBUG_RELAX,
+    DEBUG_TRIANGULATE,
+    INIT,
+    DEBUG_INIT,
+    DEBUG_HALLWAYS
 } from "./actions";
 import Cell, { floorCell } from "./Cell";
 import {
     generateRooms,
+    finalizeRooms,
     relaxRooms,
     triangulate,
     boundX,
-    boundY
+    boundY,
+    makeHallways,
+    hallways,
+    bfsPlusExtra
 } from "./levels/levelCreator.js";
-
+import { debugRelax, debugHallways, debugTriangulate } from "./actions";
 import { scan } from "./light";
+import {FOV, WIDTH, HEIGHT} from './constants'
 
-const FOV = 10;
-const LIGHT_RANGE = 5;
-
-const roomsToDungeon = (rooms, hallwayRooms, player, width, height) => {
+const roomsToDungeon = (rooms, hallwayRooms, width, height) => {
     let dungeon = new Array(height).fill(undefined).map(row => {
         return new Array(width).fill({ type: "rock", letter: "#" });
     });
@@ -39,15 +43,19 @@ const roomsToDungeon = (rooms, hallwayRooms, player, width, height) => {
             }
         };
     };
-    const alphabet = "abcdefghijklmnopqrstuvwxyz";
     rooms.forEach((room, i) => {
         room = bound(room, width, height);
         for (let row = room.top; row < room.bottom; row++) {
             for (let col = room.left; col < room.right; col++) {
-                dungeon[row][col] = {
-                    type: "floor",
-                    letter: ","
-                };
+                try {
+                    dungeon[row][col] = {
+                        type: "floor",
+                        letter: ",",
+                        debugLetter: i
+                    };
+                } catch (e) {
+                    debugger;
+                }
             }
         }
     });
@@ -125,46 +133,82 @@ const roomsToDungeon = (rooms, hallwayRooms, player, width, height) => {
                         }
                     }
                 }
+                break;
             }
+            default:
+                break;
         }
     });
     return dungeon;
 };
 
 const clipFOV = (player, dungeon) => {
-    const leftOffset = boundX(player.x - FOV);
-    const topOffset = boundY(player.y - FOV);
-    const clippedFOV = dungeon
-        .slice(boundY(player.y - FOV), boundY(player.y + FOV + 1))
-        .map(row => {
-            return row.slice(
-                boundX(player.x - FOV),
-                boundX(player.x + FOV + 1)
-            );
-        });
-    const centeredPlayer = {
-        x: Math.floor(FOV),
-        y: Math.floor(FOV)
+    let adjustedPlayer = {
+        x: player.x,
+        y: player.y
     };
-    clippedFOV[centeredPlayer.y][centeredPlayer.y] = { type: "player" };
+    let fovTop;
+    let fovRight;
+    let fovBottom;
+    let fovLeft;
+    if (player.x > dungeon[0].length - FOV / 2) {
+        // player stuck on the right
+        adjustedPlayer.x = FOV - (dungeon[0].length - player.x);
+        fovRight = dungeon[0].length;
+        fovLeft = fovRight - FOV;
+    } else if (player.x < FOV / 2) {
+        // player stuck on the left
+        adjustedPlayer.x = player.x;
+        fovRight = dungeon[0].length;
+        fovLeft = fovRight - FOV;
+    } else {
+        adjustedPlayer.x = Math.floor(FOV / 2);
+        fovRight = player.x + FOV / 2;
+        fovLeft = player.x - FOV / 2;
+    }
+    if (player.y < FOV / 2) {
+        // player stuck on the top
+        adjustedPlayer.y = boundY(player.y);
+        fovTop = 0;
+        fovBottom = FOV;
+    } else if (player.y > dungeon.length - FOV / 2) {
+        // player stuck on the bottom
+        adjustedPlayer.y = FOV - (dungeon.length - player.y);
+        fovTop = dungeon.length - FOV;
+        fovBottom = dungeon.length;
+    } else {
+        adjustedPlayer.y = Math.floor(FOV / 2);
+        fovTop = player.y - FOV / 2;
+        fovBottom = player.y + FOV / 2;
+    }
+
+    const leftOffset = fovLeft;
+    const topOffset = fovTop;
+
+    const clippedFOV = dungeon.slice(fovTop, fovBottom).map(row => {
+        return row.slice(fovLeft, fovRight);
+    });
+    clippedFOV[adjustedPlayer.y][adjustedPlayer.x] = { type: "player" };
     return {
         clippedFOV,
-        centeredPlayer,
+        centeredPlayer: adjustedPlayer,
         leftOffset,
         topOffset
     };
 };
 
-const light = (player, dungeon, memory, leftOffset, topOffset) => {
-    const { lightMap, updatedMemory } = scan(
-        player,
-        dungeon,
-        memory,
-        leftOffset,
-        topOffset
-    );
+const light = (player, dungeon, globalMemory, leftOffset, topOffset) => {
+    const { lightMap, memory } = scan(player, dungeon);
+    const localMemory = memory;
+    // TODO update global memory from local memory
+    for (let row = 0; row < localMemory.length; row++) {
+        for (let col = 0; col < localMemory[0].length; col++) {
+            globalMemory[row + topOffset][col + leftOffset] =
+                localMemory[row][col];
+        }
+    }
     // apply memory to the global dungeon
-    return { lightMap, updatedMemory };
+    return { lightMap, updatedMemory: globalMemory };
 };
 
 const flatten = (clippedFOV, memory, light) => {
@@ -183,25 +227,50 @@ const flatten = (clippedFOV, memory, light) => {
     return annotatedFOV;
 };
 
+const initialRooms = generateRooms({
+    radius: 50,
+    nRooms: 150
+});
+const player = {
+    x: boundX(initialRooms[0].center.x),
+    y: boundY(initialRooms[0].center.y)
+};
+const initialDungeon = roomsToDungeon(initialRooms, [], WIDTH, HEIGHT);
+const initialMemory = new Array(initialDungeon.length)
+    .fill(undefined)
+    .map(row => {
+        return new Array(initialDungeon[0].length).fill(undefined);
+    });
+const { clippedFOV, centeredPlayer, leftOffset, topOffset } = clipFOV(
+    player,
+    initialDungeon
+);
+const { lightMap, updatedMemory } = light(
+    centeredPlayer,
+    clippedFOV,
+    initialMemory,
+    leftOffset,
+    topOffset
+);
+const fov = flatten(clippedFOV, updatedMemory, lightMap);
+
 const initialState = {
-    dungeon: [[]],
-    rooms: [[]],
-    viewHeight: 100,
-    viewWidth: 100,
+    rooms: initialRooms,
+    dungeon: initialDungeon,
+    viewHeight: HEIGHT,
+    viewWidth: WIDTH,
     settled: false,
-    player: {
-        x: 0,
-        y: 0
-    },
-    fov: [[]],
-    memory: [[]]
+    finalized: false,
+    player,
+    fov,
+    memory: updatedMemory
 };
 const reducer = (state = initialState, action) => {
     switch (action.type) {
         case INIT:
-            const [initialRooms, hallwayRooms] = generateRooms({
-                radius: 50 - 15,
-                nRooms: 200
+            const [initialRooms, hallwayRooms] = finalizeRooms({
+                radius: 50,
+                nRooms: 150
             });
             const player = {
                 x: boundX(initialRooms[0].center.x),
@@ -210,9 +279,8 @@ const reducer = (state = initialState, action) => {
             const initialDungeon = roomsToDungeon(
                 initialRooms,
                 hallwayRooms,
-                player,
-                100,
-                100
+                WIDTH,
+                HEIGHT
             );
             const initialMemory = new Array(initialDungeon.length)
                 .fill(undefined)
@@ -233,19 +301,130 @@ const reducer = (state = initialState, action) => {
                 topOffset
             );
             const fov = flatten(clippedFOV, updatedMemory, lightMap);
-            return {
-                ...state,
-                dungeon: initialDungeon,
-                rooms: initialRooms,
-                settled: true,
-                fov,
-                player,
-                memory: updatedMemory
+            return [
+                {
+                    ...state,
+                    dungeon: initialDungeon,
+                    rooms: initialRooms,
+                    hallwayRooms,
+                    settled: true,
+                    fov,
+                    player,
+                    memory: updatedMemory
+                },
+                () => {}
+            ];
+        case DEBUG_INIT: {
+            // don't finalize rooms
+            const initialRooms = generateRooms({
+                radius: 50,
+                nRooms: 200
+            });
+            const player = {
+                x: boundX(initialRooms[0].center.x),
+                y: boundY(initialRooms[0].center.y)
             };
+            const initialDungeon = roomsToDungeon(initialRooms, [], WIDTH, HEIGHT);
+            const initialMemory = new Array(initialDungeon.length)
+                .fill(undefined)
+                .map(row => {
+                    return new Array(initialDungeon[0].length).fill(undefined);
+                });
+            const {
+                clippedFOV,
+                centeredPlayer,
+                leftOffset,
+                topOffset
+            } = clipFOV(player, initialDungeon);
+            const { lightMap, updatedMemory } = light(
+                centeredPlayer,
+                clippedFOV,
+                initialMemory,
+                leftOffset,
+                topOffset
+            );
+            const fov = flatten(clippedFOV, updatedMemory, lightMap);
+            return [
+                {
+                    ...state,
+                    debugMsg: 'Generated rooms',
+                    dungeon: initialDungeon,
+                    rooms: initialRooms,
+                    settled: false,
+                    fov,
+                    player,
+                    memory: updatedMemory
+                },
+                () => {
+                    return debugRelax();
+                }
+            ];
+        }
+        case DEBUG_RELAX: {
+            const [relaxedRooms, updated] = relaxRooms(state.rooms);
+            const dungeon = roomsToDungeon(relaxedRooms, [], WIDTH, HEIGHT);
+            return [
+                {
+                    ...state,
+                    debugMsg: 'Relaxing rooms...',
+                    rooms: relaxedRooms,
+                    dungeon,
+                    settled: !updated
+                },
+                state.settled
+                    ? () => {
+                          return debugTriangulate();
+                      }
+                    : () => {
+                          return new Promise((resolve, reject) => {
+                              setTimeout(() => {
+                                  resolve(debugRelax());
+                              }, 100);
+                          });
+                      }
+            ];
+        }
+        case DEBUG_TRIANGULATE: {
+            const { edges, importantRooms } = triangulate(state.rooms);
+            return [
+                {
+                    ...state,
+                    debugMsg: 'Selected "important" rooms. Hit any key to continue.',
+                    edges,
+                    importantRooms
+                },
+                () => {
+                    return new Promise((resolve, reject) => {
+                        window.addEventListener(
+                            "keydown",
+                            e => {
+                                resolve(debugHallways());
+                            },
+                            { once: true }
+                        );
+                    });
+                }
+            ];
+        }
+        case DEBUG_HALLWAYS: {
+            const spannedRooms = bfsPlusExtra(state.importantRooms, state.edges);
+            console.log('spanned rooms:')
+            console.log(spannedRooms);
+            const hallwayRooms = hallways(spannedRooms);
+            return [
+                {
+                    ...state,
+                    debugMsg: 'Hallways created',
+                    dungeon: roomsToDungeon(state.rooms, hallwayRooms, WIDTH, HEIGHT),
+                    hallwayRooms,
+                },
+                () => {}
+            ];
+        }
         case MOVE_LEFT: {
             const updatedPlayer = {
                 ...state.player,
-                x: state.player.x - 1
+                x: boundX(state.player.x - 1)
             };
             const {
                 clippedFOV,
@@ -261,17 +440,20 @@ const reducer = (state = initialState, action) => {
                 topOffset
             );
             const fov = flatten(clippedFOV, updatedMemory, lightMap);
-            return {
-                ...state,
-                player: updatedPlayer,
-                fov,
-                memory: updatedMemory
-            };
+            return [
+                {
+                    ...state,
+                    player: updatedPlayer,
+                    fov,
+                    memory: updatedMemory
+                },
+                () => {}
+            ];
         }
         case MOVE_RIGHT: {
             const updatedPlayer = {
                 ...state.player,
-                x: state.player.x + 1
+                x: boundX(state.player.x + 1)
             };
             const {
                 clippedFOV,
@@ -287,17 +469,20 @@ const reducer = (state = initialState, action) => {
                 topOffset
             );
             const fov = flatten(clippedFOV, updatedMemory, lightMap);
-            return {
-                ...state,
-                player: updatedPlayer,
-                fov,
-                memory: updatedMemory
-            };
+            return [
+                {
+                    ...state,
+                    player: updatedPlayer,
+                    fov,
+                    memory: updatedMemory
+                },
+                () => {}
+            ];
         }
         case MOVE_DOWN: {
             const updatedPlayer = {
                 ...state.player,
-                y: state.player.y + 1
+                y: boundY(state.player.y + 1)
             };
             const {
                 clippedFOV,
@@ -313,17 +498,20 @@ const reducer = (state = initialState, action) => {
                 topOffset
             );
             const fov = flatten(clippedFOV, updatedMemory, lightMap);
-            return {
-                ...state,
-                player: updatedPlayer,
-                fov,
-                memory: updatedMemory
-            };
+            return [
+                {
+                    ...state,
+                    player: updatedPlayer,
+                    fov,
+                    memory: updatedMemory
+                },
+                () => {}
+            ];
         }
         case MOVE_UP: {
             const updatedPlayer = {
                 ...state.player,
-                y: state.player.y - 1
+                y: boundY(state.player.y - 1)
             };
             const {
                 clippedFOV,
@@ -339,18 +527,18 @@ const reducer = (state = initialState, action) => {
                 topOffset
             );
             const fov = flatten(clippedFOV, updatedMemory, lightMap);
-            return {
-                ...state,
-                player: updatedPlayer,
-                fov,
-                memory: updatedMemory
-            };
+            return [
+                {
+                    ...state,
+                    player: updatedPlayer,
+                    fov,
+                    memory: updatedMemory
+                },
+                () => {}
+            ];
         }
-        case TRIANGULATE:
-            triangulate(state.rooms);
-            return state;
         default:
-            return state;
+            return [state, () => {}];
     }
 };
 
