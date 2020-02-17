@@ -24,7 +24,7 @@ import {
 } from "./levels/levelCreator.js";
 import { debugRelax, debugHallways, debugTriangulate } from "./actions";
 import { scan } from "./light";
-import {FOV, WIDTH, HEIGHT} from './constants'
+import { FOV, WIDTH, HEIGHT } from "./constants";
 
 const roomsToDungeon = (rooms, hallwayRooms, width, height) => {
     let dungeon = new Array(height).fill(undefined).map(row => {
@@ -67,9 +67,22 @@ const roomsToDungeon = (rooms, hallwayRooms, width, height) => {
             case "vertical": {
                 let { x, bottom, top } = hallwayRoom;
                 for (let row = bottom; row >= top; row--) {
+                    if (row < bottom && row > top) {
+                        dungeon[row][x - 1] = {
+                            type: "floor",
+                            letter: ",",
+                            debugLetter: 'v',
+                        };
+                        dungeon[row][x + 1] = {
+                            type: "floor",
+                            letter: ",",
+                            debugLetter: 'v',
+                        };
+                    }
                     dungeon[row][x] = {
                         type: "floor",
-                        letter: ","
+                        letter: ",",
+                        debugLetter: 'v',
                     };
                 }
                 break;
@@ -77,9 +90,23 @@ const roomsToDungeon = (rooms, hallwayRooms, width, height) => {
             case "horizontal": {
                 let { y, left, right } = hallwayRoom;
                 for (let col = left; col <= right; col++) {
+                    if (col > left && col < right) {
+                        dungeon[y - 1][col] = {
+                            type: "floor",
+                            letter: ",",
+                            debugLetter: 'h',
+                        };
+
+                        dungeon[y + 1][col] = {
+                            type: "floor",
+                            letter: ",",
+                            debugLetter: 'h',
+                        };
+                    }
                     dungeon[y][col] = {
                         type: "floor",
-                        letter: ","
+                        letter: ",",
+                        debugLetter: 'h',
                     };
                 }
                 break;
@@ -88,47 +115,126 @@ const roomsToDungeon = (rooms, hallwayRooms, width, height) => {
                 let { major, lx, ly, ry, rx } = hallwayRoom;
                 if (major === "right") {
                     for (let col = lx; col < rx; col++) {
+                        if (col > lx + 1) {
+                            dungeon[ly - 1][col] = {
+                                type: "floor",
+                                letter: ",",
+                                debugLetter: 'r'
+                            };
+
+                            dungeon[ly + 1][col] = {
+                                type: "floor",
+                                letter: ",",
+                                debugLetter: 'r'
+                            };
+                        }
                         dungeon[ly][col] = {
                             type: "floor",
-                            letter: ","
+                            letter: ",",
+                            debugLetter: 'r'
                         };
                     }
                     const ascending = ry < ly;
                     if (ascending) {
                         for (let row = ly; row > ry; row--) {
+                            if (row > ry) {
+                                dungeon[row][rx - 1] = {
+                                    type: "floor",
+                                    letter: ",",
+                                    debugLetter: 'ra'
+                                };
+                                dungeon[row][rx + 1] = {
+                                    type: "floor",
+                                    letter: ",",
+                                    debugLetter: 'ra'
+                                };
+                            }
                             dungeon[row][rx] = {
                                 type: "floor",
-                                letter: ","
+                                letter: ",",
+                                debugLetter: 'ra'
                             };
                         }
                     } else {
                         for (let row = ly; row < ry; row++) {
+                            if (row < ry - 1) {
+                                dungeon[row][rx - 1] = {
+                                    type: "floor",
+                                    letter: ",",
+                                    debugLetter: 'rd'
+                                };
+                                dungeon[row][rx + 1] = {
+                                    type: "floor",
+                                    letter: ",",
+                                    debugLetter: 'rd'
+                                };
+                            }
                             dungeon[row][rx] = {
                                 type: "floor",
-                                letter: ","
+                                letter: ",",
+                                debugLetter: 'rd'
                             };
                         }
                     }
                 } else {
                     for (let col = rx; col > lx; col--) {
+                        if (col < rx - 1) {
+                            dungeon[ry - 1][col] = {
+                                type: "floor",
+                                letter: ",",
+                                debugLetter: 'u'
+                            };
+                            dungeon[ry + 1][col] = {
+                                type: "floor",
+                                letter: ",",
+                                debugLetter: 'u'
+                            };
+                        }
                         dungeon[ry][col] = {
                             type: "floor",
-                            letter: ","
+                            letter: ",",
+                            debugLetter: 'u'
                         };
                     }
                     const ascending = ly < ry;
                     if (ascending) {
                         for (let row = ry; row >= ly; row--) {
+                            if (row > ly) {
+                                dungeon[row][lx - 1] = {
+                                    type: "floor",
+                                    letter: ",",
+                                    debugLetter: 'ua'
+                                };
+                                dungeon[row][lx + 1] = {
+                                    type: "floor",
+                                    letter: ",",
+                                    debugLetter: 'ua'
+                                };
+                            }
                             dungeon[row][lx] = {
                                 type: "floor",
-                                letter: ","
+                                letter: ",",
+                                debugLetter: 'ua'
                             };
                         }
                     } else {
                         for (let row = ry; row <= ly; row++) {
+                            if (row < ly) {
+                                dungeon[row][lx - 1] = {
+                                    type: "floor",
+                                    letter: ",",
+                                    debugLetter: 'ud'
+                                };
+                                dungeon[row][lx + 1] = {
+                                    type: "floor",
+                                    letter: ",",
+                                    debugLetter: 'ud'
+                                };
+                            }
                             dungeon[row][lx] = {
                                 type: "floor",
-                                letter: ","
+                                letter: ",",
+                                debugLetter: 'ud'
                             };
                         }
                     }
@@ -317,14 +423,19 @@ const reducer = (state = initialState, action) => {
         case DEBUG_INIT: {
             // don't finalize rooms
             const initialRooms = generateRooms({
-                radius: 50,
-                nRooms: 200
+                radius: 20,
+                nRooms: 75
             });
             const player = {
                 x: boundX(initialRooms[0].center.x),
                 y: boundY(initialRooms[0].center.y)
             };
-            const initialDungeon = roomsToDungeon(initialRooms, [], WIDTH, HEIGHT);
+            const initialDungeon = roomsToDungeon(
+                initialRooms,
+                [],
+                WIDTH,
+                HEIGHT
+            );
             const initialMemory = new Array(initialDungeon.length)
                 .fill(undefined)
                 .map(row => {
@@ -347,7 +458,7 @@ const reducer = (state = initialState, action) => {
             return [
                 {
                     ...state,
-                    debugMsg: 'Generated rooms',
+                    debugMsg: "Generated rooms",
                     dungeon: initialDungeon,
                     rooms: initialRooms,
                     settled: false,
@@ -356,7 +467,15 @@ const reducer = (state = initialState, action) => {
                     memory: updatedMemory
                 },
                 () => {
-                    return debugRelax();
+                    return new Promise((resolve, reject) => {
+                        window.addEventListener(
+                            "keydown",
+                            () => {
+                                resolve(debugRelax());
+                            },
+                            { once: true }
+                        );
+                    });
                 }
             ];
         }
@@ -366,7 +485,7 @@ const reducer = (state = initialState, action) => {
             return [
                 {
                     ...state,
-                    debugMsg: 'Relaxing rooms...',
+                    debugMsg: "Relaxing rooms...",
                     rooms: relaxedRooms,
                     dungeon,
                     settled: !updated
@@ -389,7 +508,8 @@ const reducer = (state = initialState, action) => {
             return [
                 {
                     ...state,
-                    debugMsg: 'Selected "important" rooms. Hit any key to continue.',
+                    debugMsg:
+                        'Selected "important" rooms. Hit any key to continue.',
                     edges,
                     importantRooms
                 },
@@ -407,16 +527,24 @@ const reducer = (state = initialState, action) => {
             ];
         }
         case DEBUG_HALLWAYS: {
-            const spannedRooms = bfsPlusExtra(state.importantRooms, state.edges);
-            console.log('spanned rooms:')
+            const spannedRooms = bfsPlusExtra(
+                state.importantRooms,
+                state.edges
+            );
+            console.log("spanned rooms:");
             console.log(spannedRooms);
             const hallwayRooms = hallways(spannedRooms);
             return [
                 {
                     ...state,
-                    debugMsg: 'Hallways created',
-                    dungeon: roomsToDungeon(state.rooms, hallwayRooms, WIDTH, HEIGHT),
-                    hallwayRooms,
+                    debugMsg: "Hallways created",
+                    dungeon: roomsToDungeon(
+                        state.rooms,
+                        hallwayRooms,
+                        WIDTH,
+                        HEIGHT
+                    ),
+                    hallwayRooms
                 },
                 () => {}
             ];

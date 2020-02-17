@@ -1,6 +1,6 @@
 // global
 export const WIDTH = 200;
-export const HEIGHT = 100;
+export const HEIGHT = 150;
 export const CELL_WIDTH = 1;
 export const FOV = 30;
 

@@ -1,19 +1,20 @@
 // this module implements procedural dungeon generation using the techniques in
 // https://gamasutra.com/blogs/AAdonaac/20150903/252889/Procedural_Dungeon_Generation_Algorithm.php
 // import {WIDTH, HEIGHT} from './constants'
+// this is a circular import? ^
 const Delaunator = require("delaunator").default;
 
 const CELL_WIDTH = 1;
 const WIDTH = 200;
-const HEIGHT = 100;
+const HEIGHT = 150;
 const MAX_WIDTH = 10;
 const MAX_HEIGHT = 10;
 const MIN_WIDTH = 2;
 const MIN_HEIGHT = 2;
 const MAX_WIDTH_TO_HEIGHT = 2;
 const MIN_WIDTH_TO_HEIGHT = 1 / 2;
-const IMPORTANT_WIDTH = 3;
-const IMPORTANT_HEIGHT = 3;
+const IMPORTANT_WIDTH = 4;
+const IMPORTANT_HEIGHT = 4;
 const FORCE_SCALE = 10;
 
 const MAX_INT32 = 2147483647;
@@ -28,7 +29,6 @@ const randn = (min, max, skew) => {
     let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 
     num = num / 5.0 + 0.5;
-    // if (num > 1 || num < 0) num = randn(min, max, skew);
     num = Math.pow(num, skew);
     num *= max - min;
     num += min;
@@ -131,7 +131,9 @@ const generateRooms = ({ radius, nRooms }) => {
     const rooms = new Array(nRooms).fill(undefined).map((_, index) => {
         const center = randomPointInCircle(radius);
         const width = Math.floor(randn(MIN_WIDTH, 10, 2));
-        const height = Math.floor(randn(MIN_WIDTH, 10, 2));
+        const height = Math.floor(
+            randn(MIN_WIDTH, width * MAX_WIDTH_TO_HEIGHT, 2)
+        );
         let leftEdge = Math.round(center.x - width / 2);
         let rightEdge = Math.round(center.x + width / 2);
         let topEdge = Math.round(center.y - height / 2);
@@ -216,10 +218,6 @@ const relaxRooms = rooms => {
     });
 
     let updated = false;
-    let collisions = roomBodies.reduce((acc, room, i) => {
-        acc[i] = [];
-        return acc;
-    }, {});
 
     for (let i = 0; i < roomBodies.length; i++) {
         const agent = roomBodies[i];
@@ -229,14 +227,6 @@ const relaxRooms = rooms => {
             }
             const neighbor = roomBodies[j];
             if (intersect(agent, neighbor)) {
-                if (
-                    collisions[j].indexOf(i) > 0 ||
-                    collisions[i].indexOf(j) > 0
-                ) {
-                    continue;
-                }
-                collisions[j].push(i);
-                collisions[i].push(j);
                 const separation = new Vector(agent.center).subtract(
                     neighbor.center
                 );
@@ -259,9 +249,7 @@ const relaxRooms = rooms => {
                             : separation.y + agentHeight
                 });
                 const mass = agentWidth * agentHeight;
-                const totalForce = agent.force.add(
-                    pushForce.div(FORCE_SCALE).div(mass)
-                );
+                const totalForce = agent.force.add(pushForce.div(mass/2));
                 agent.force = totalForce;
                 updated = true;
                 agent.neighbors++;
@@ -400,10 +388,8 @@ const bfsPlusExtra = (rooms, edges) => {
         });
     }
     edges.forEach(([left, right]) => {
-        if (Math.random() < 0.1) {
-            nodes[left].parents.push(
-                right
-            );
+        if (Math.random() < 0.3) {
+            nodes[left].parents.push(right);
         }
     });
     // annotate parents on the [rooms] array
@@ -453,7 +439,7 @@ const hallways = rooms => {
                     Math.min(rightRoom.right, leftRoom.right)
                 );
                 return {
-                    bottom: boundY(bottomRoom.top),
+                    bottom: boundY(bottomRoom.top - 1),
                     top: boundY(topRoom.bottom),
                     orientation: "vertical",
                     x: boundX(hallX),
@@ -484,8 +470,8 @@ const hallways = rooms => {
                 // _|
                 const hallY = middle(topRoom.bottom, bottomRoom.top);
                 return {
-                    left: boundX(leftRoom.right),
-                    right: boundX(rightRoom.left),
+                    left: boundX(leftRoom.right + 1),
+                    right: boundX(rightRoom.left - 1),
                     orientation: "horizontal",
                     y: boundY(hallY),
                     debugName: `${leftRoom.index}${rightRoom.index}`
@@ -506,7 +492,7 @@ const hallways = rooms => {
                 //      |
                 // LB --
 
-                // LEFT MAJOR
+                // UP MAJOR
                 //  -- RT
                 // |
                 // LB
@@ -514,13 +500,31 @@ const hallways = rooms => {
                 // LT
                 //  |
                 //   -- RB
+                const major = leftRoom.center.x < WIDTH / 2 ? "right" : "up";
+                const ascending = rightRoom.bottom < leftRoom.top;
                 return {
                     orientation: "elbow",
-                    major: Math.random() > 0.5 ? "right" : "left",
-                    lx: boundX(leftRoom.center.x),
-                    rx: boundX(rightRoom.center.x),
-                    ry: boundY(rightRoom.center.y),
-                    ly: boundY(leftRoom.center.y)
+                    major,
+                    lx:
+                        major === "right"
+                            ? boundX(leftRoom.right - 1)
+                            : boundX(leftRoom.center.x),
+                    rx:
+                        major === "right"
+                            ? boundX(rightRoom.center.x)
+                            : boundX(rightRoom.left - 1),
+                    ry:
+                        major === "right"
+                            ? ascending
+                                ? boundY(rightRoom.bottom)
+                                : boundY(rightRoom.top)
+                            : boundY(rightRoom.center.y),
+                    ly:
+                        major === "right"
+                            ? boundY(leftRoom.center.y)
+                            : ascending
+                            ? boundY(leftRoom.top - 1)
+                            : boundY(leftRoom.bottom)
                 };
             }
         });
