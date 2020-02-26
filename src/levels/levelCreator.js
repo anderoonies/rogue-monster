@@ -3,6 +3,7 @@
 // import {WIDTH, HEIGHT} from './constants'
 // this is a circular import? ^
 const Delaunator = require("delaunator").default;
+const COLORS = require("../constants").COLORS;
 
 const CELL_WIDTH = 1;
 const WIDTH = 200;
@@ -20,6 +21,27 @@ const FORCE_SCALE = 10;
 const MAX_INT32 = 2147483647;
 const MINSTD = 16807;
 
+const randColorFrom = (baseColor, range) => {
+    const f = parseInt(baseColor.slice(1), 16);
+    const deviation = (Math.random() < 0.5 ? -1 : 1) * randn(0, range, 1);
+    const R = f >> 16;
+    const G = (f >> 8) & 0x00ff;
+    const B = f & 0x0000ff;
+    const rAdd = R + deviation;
+    const gAdd = G + deviation;
+    const bAdd = B + deviation;
+    const componentToHex = c => {
+        const hex = c.toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+    };
+    return (
+        "#" +
+        componentToHex(Math.max(0, Math.min(255, Math.round(rAdd, 2)))) +
+        componentToHex(Math.max(0, Math.min(255, Math.round(gAdd, 2)))) +
+        componentToHex(Math.max(0, Math.min(255, Math.round(bAdd, 2))))
+    );
+};
+
 const randn = (min, max, skew) => {
     // https://stackoverflow.com/questions/25582882/javascript-math-random-normal-distribution-gaussian-bell-curve
     let u = 0;
@@ -33,10 +55,6 @@ const randn = (min, max, skew) => {
     num *= max - min;
     num += min;
     return num;
-};
-
-const randr = (min, max) => {
-    return Math.floor(Math.random() * (max - min)) + min;
 };
 
 let Vector = function({ x, y }) {
@@ -249,7 +267,7 @@ const relaxRooms = rooms => {
                             : separation.y + agentHeight
                 });
                 const mass = agentWidth * agentHeight;
-                const totalForce = agent.force.add(pushForce.div(mass/2));
+                const totalForce = agent.force.add(pushForce.div(mass / 2));
                 agent.force = totalForce;
                 updated = true;
                 agent.neighbors++;
@@ -516,7 +534,7 @@ const hallways = rooms => {
                     ry:
                         major === "right"
                             ? ascending
-                                ? boundY(rightRoom.bottom)
+                                ? boundY(rightRoom.bottom - 1)
                                 : boundY(rightRoom.top)
                             : boundY(rightRoom.center.y),
                     ly:
@@ -530,8 +548,143 @@ const hallways = rooms => {
         });
         return halls.concat(roomHalls);
     }, []);
-    window.rooms = rooms;
     return hallways.filter(hall => hall !== undefined);
+};
+
+const roomsToDungeon = (rooms, hallwayRooms, width, height) => {
+    let dungeon = new Array(height).fill(undefined).map(row => {
+        return new Array(width)
+            .fill({
+                type: "rock",
+                letter: "#"
+            })
+            .map(rock => {
+                return { ...rock, color: randColorFrom(COLORS.rock, 10) };
+            });
+    });
+    const bound = (room, width, height) => {
+        return {
+            ...room,
+            top: Math.max(0, room.top),
+            bottom: Math.min(height, room.bottom),
+            left: Math.max(0, room.left),
+            right: Math.min(width, room.right),
+            center: {
+                x: Math.min(width, Math.max(0, room.center.x)),
+                y: Math.min(height, Math.max(0, room.center.y))
+            }
+        };
+    };
+    rooms.forEach((room, i) => {
+        room = bound(room, width, height);
+        for (let row = room.top; row < room.bottom; row++) {
+            for (let col = room.left; col < room.right; col++) {
+                dungeon[row][col] = {
+                    type: "floor",
+                    letter: ",",
+                    color: randColorFrom(COLORS.floor, 5),
+                    debugLetter: i
+                };
+            }
+        }
+    });
+    hallwayRooms.forEach((hallwayRoom, i) => {
+        if (!hallwayRoom) {
+            return;
+        }
+        switch (hallwayRoom.orientation) {
+            case "vertical": {
+                let { x, bottom, top } = hallwayRoom;
+                for (let row = bottom; row >= top; row--) {
+                    dungeon[row][x] = {
+                        type: "floor",
+                        letter: ",",
+                        color: randColorFrom(COLORS.floor, 5),
+                        debugLetter: "v"
+                    };
+                }
+                break;
+            }
+            case "horizontal": {
+                let { y, left, right } = hallwayRoom;
+                for (let col = left; col <= right; col++) {
+                    dungeon[y][col] = {
+                        type: "floor",
+                        letter: ",",
+                        color: randColorFrom(COLORS.floor, 5),
+                        debugLetter: "h"
+                    };
+                }
+                break;
+            }
+            case "elbow": {
+                let { major, lx, ly, ry, rx } = hallwayRoom;
+                if (major === "right") {
+                    for (let col = lx; col < rx; col++) {
+                        dungeon[ly][col] = {
+                            type: "floor",
+                            letter: ",",
+                            color: randColorFrom(COLORS.floor, 5),
+                            debugLetter: "r"
+                        };
+                    }
+                    const ascending = ry < ly;
+                    if (ascending) {
+                        for (let row = ly; row > ry; row--) {
+                            dungeon[row][rx] = {
+                                type: "floor",
+                                letter: ",",
+                                color: randColorFrom(COLORS.floor, 5),
+                                debugLetter: "ra"
+                            };
+                        }
+                    } else {
+                        for (let row = ly; row < ry; row++) {
+                            dungeon[row][rx] = {
+                                type: "floor",
+                                letter: ",",
+                                color: randColorFrom(COLORS.floor, 5),
+                                debugLetter: "rd"
+                            };
+                        }
+                    }
+                } else {
+                    for (let col = rx; col > lx; col--) {
+                        dungeon[ry][col] = {
+                            type: "floor",
+                            letter: ",",
+                            color: randColorFrom(COLORS.floor, 5),
+                            debugLetter: "u"
+                        };
+                    }
+                    const ascending = ly < ry;
+                    if (ascending) {
+                        for (let row = ry; row >= ly; row--) {
+                            dungeon[row][lx] = {
+                                type: "floor",
+                                letter: ",",
+                                color: randColorFrom(COLORS.floor, 5),
+                                debugLetter: "ua"
+                            };
+                        }
+                    } else {
+                        for (let row = ry; row <= ly; row++) {
+                            dungeon[row][lx] = {
+                                type: "floor",
+                                letter: ",",
+                                color: randColorFrom(COLORS.floor, 5),
+                                debugLetter: "ud"
+                            };
+                        }
+                    }
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    });
+    return dungeon;
 };
 
 module.exports = {
@@ -543,6 +696,7 @@ module.exports = {
     relaxRooms,
     makeHallways,
     bfsPlusExtra,
+    roomsToDungeon,
     hallways
 };
 

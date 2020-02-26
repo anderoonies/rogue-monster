@@ -80,11 +80,8 @@ const cast = ({
                 break;
             }
 
-            let distance = Math.min(DARKNESS_MAX, Math.max(xc * xc + yc * yc));
-            light[gridY][gridX] = distance;
-            if (distance <= DARK_THRESHOLD) {
-                memory[gridY][gridX] = dungeon[gridY][gridX];
-            }
+            light[gridY][gridX] = 0;
+            memory[gridY][gridX] = dungeon[gridY][gridX];
             let currentlyBlocked;
             currentlyBlocked = dungeon[gridY][gridX].type !== "floor";
             if (previousWasBlocked) {

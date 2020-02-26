@@ -1,12 +1,5 @@
 import React from "react";
-import { DIM_THRESHOLD, DARK_THRESHOLD, DARKNESS_MAX } from "./constants";
-
-const colors = {
-    floor: "#ece3e3",
-    wall: "#6d6d6d",
-    player: "#299c32",
-    rock: "#6d6d6d"
-};
+import { DIM_THRESHOLD, DARK_THRESHOLD, DARKNESS_MAX, COLORS } from "./constants";
 
 const letters = {
     floor: ",",
@@ -18,6 +11,7 @@ const letters = {
 export default function Cell({
     type,
     letter,
+    color,
     debugLetter,
     light,
     memory,
@@ -26,12 +20,12 @@ export default function Cell({
     debug,
     importantRooms
 }) {
-    const color = colors[type];
+    color = color || COLORS[type];
     let bgColor = shadeHexColor(color, light);
-    if (light === DARKNESS_MAX && memory) {
+    if (memory && light === DARKNESS_MAX) {
         type = memory.type;
         letter = memory.type;
-        bgColor = "darkblue";
+        bgColor = shadeHexColor(color, 30)
     }
     if (debug && importantRooms) {
         const important = importantRooms.reduce((alreadyImportant, room) => {
@@ -75,8 +69,8 @@ function shadeHexColor(color, darkness) {
     const B = f & 0x0000ff;
     return (
         "#" +
-        componentToHex(Math.round(R - R * decimal, 2)) +
-        componentToHex(Math.round(G - G * decimal, 2)) +
-        componentToHex(Math.round(B - B * decimal, 2))
+        componentToHex(Math.max(0, Math.min(Math.round(R - R * decimal, 2), 255))) +
+        componentToHex(Math.max(0, Math.min(Math.round(G - G * decimal, 2), 255))) +
+        componentToHex(Math.max(0, Math.min(Math.round(B - B * decimal, 2), 255)))
     );
 }

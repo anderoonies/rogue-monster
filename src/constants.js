@@ -12,4 +12,12 @@ export const DARKNESS_MAX = 100;
 export const LIGHT_RANGE = 5;
 
 // # and flags~
-export const DEBUG = true;
+export const DEBUG = false;
+
+// colors
+export const COLORS = {
+    floor: "#bfbfbf",
+    wall: "#777463",
+    player: "#299c32",
+    rock: "#777463"
+};

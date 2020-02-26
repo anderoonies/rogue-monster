@@ -5,10 +5,7 @@ import { connect } from "react-redux";
 import {
     init,
     debugInit,
-    moveLeft,
-    moveRight,
-    moveUp,
-    moveDown
+    move
 } from "./actions";
 import { DEBUG } from "./constants";
 
@@ -25,28 +22,28 @@ const Renderer = ({ state, dispatch }) => {
             window.addEventListener("keydown", e => {
                 switch (e.code) {
                     case "ArrowRight":
-                        dispatch(moveRight());
+                        dispatch(move({x:1, y:0}));
                         break;
                     case "ArrowLeft":
-                        dispatch(moveLeft());
+                        dispatch(move({x:-1, y:0}));
                         break;
                     case "ArrowUp":
-                        dispatch(moveUp());
+                        dispatch(move({x:0, y:-1}));
                         break;
                     case "ArrowDown":
-                        dispatch(moveDown());
+                        dispatch(move({x:0, y:1}));
                         break;
                     case "KeyD":
-                        dispatch(moveRight());
+                        dispatch(move({x:1, y:0}));
                         break;
                     case "KeyA":
-                        dispatch(moveLeft());
+                        dispatch(move({x:-1, y:0}));
                         break;
                     case "KeyW":
-                        dispatch(moveUp());
+                        dispatch(move({x:0, y:-1}));
                         break;
                     case "KeyS":
-                        dispatch(moveDown());
+                        dispatch(move({x:0, y:1}));
                         break;
                     default:
                         break;

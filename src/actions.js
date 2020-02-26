@@ -64,27 +64,10 @@ export function init() {
     }
 }
 
-export const MOVE_LEFT = 'MOVE_LEFT';
-export function moveLeft() {
+export const MOVE = 'MOVE';
+export function move(transform) {
     return {
-        type: MOVE_LEFT
-    }
-}
-export const MOVE_RIGHT = 'MOVE_RIGHT';
-export function moveRight() {
-    return {
-        type: MOVE_RIGHT
-    }
-}
-export const MOVE_DOWN = 'MOVE_DOWN';
-export function moveDown() {
-    return {
-        type: MOVE_DOWN
-    }
-}
-export const MOVE_UP = 'MOVE_UP';
-export function moveUp() {
-    return {
-        type: MOVE_UP
+        type: MOVE,
+        transform
     }
 }
