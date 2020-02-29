@@ -5,7 +5,8 @@ import {
     DEBUG_TRIANGULATE,
     INIT,
     DEBUG_INIT,
-    DEBUG_HALLWAYS
+    DEBUG_HALLWAYS,
+    ACCRETION_INIT
 } from "./actions";
 import Cell, { floorCell } from "./Cell";
 import {
@@ -18,9 +19,10 @@ import {
     makeHallways,
     hallways,
     roomsToDungeon,
-    bfsPlusExtra
+    bfsPlusExtra,
+    accreteRooms
 } from "./levels/levelCreator.js";
-import { debugRelax, debugHallways, debugTriangulate } from "./actions";
+import { debugRelax, debugHallways, debugTriangulate, accretionInit } from "./actions";
 import { scan } from "./light";
 import { FOV, WIDTH, HEIGHT } from "./constants";
 
@@ -121,43 +123,43 @@ const flatten = (clippedFOV, clippedMemory, light) => {
     return annotatedFOV;
 };
 
-const initialRooms = generateRooms({
-    radius: 50,
-    nRooms: 150
-});
-const player = {
-    x: boundX(initialRooms[0].center.x),
-    y: boundY(initialRooms[0].center.y)
-};
-const initialDungeon = roomsToDungeon(initialRooms, [], WIDTH, HEIGHT);
-const initialMemory = new Array(initialDungeon.length)
-    .fill(undefined)
-    .map(row => {
-        return new Array(initialDungeon[0].length).fill(undefined);
-    });
-const { clippedFOV, centeredPlayer, leftOffset, topOffset } = clipFOV(
-    player,
-    initialDungeon
-);
-const { lightMap, updatedMemory, clippedMemory } = light(
-    centeredPlayer,
-    clippedFOV,
-    initialMemory,
-    leftOffset,
-    topOffset
-);
-const fov = flatten(clippedFOV, clippedMemory, lightMap);
+// const initialRooms = generateRooms({
+//     radius: 50,
+//     nRooms: 150
+// });
+// const player = {
+//     x: boundX(initialRooms[0].center.x),
+//     y: boundY(initialRooms[0].center.y)
+// };
+// const initialDungeon = roomsToDungeon(initialRooms, [], WIDTH, HEIGHT);
+// const initialMemory = new Array(initialDungeon.length)
+//     .fill(undefined)
+//     .map(row => {
+//         return new Array(initialDungeon[0].length).fill(undefined);
+//     });
+// const { clippedFOV, centeredPlayer, leftOffset, topOffset } = clipFOV(
+//     player,
+//     initialDungeon
+// );
+// const { lightMap, updatedMemory, clippedMemory } = light(
+//     centeredPlayer,
+//     clippedFOV,
+//     initialMemory,
+//     leftOffset,
+//     topOffset
+// );
+// const fov = flatten(clippedFOV, clippedMemory, lightMap);
 
 const initialState = {
-    rooms: initialRooms,
-    dungeon: initialDungeon,
+    rooms: [],
+    dungeon: [[]],
     viewHeight: HEIGHT,
     viewWidth: WIDTH,
     settled: false,
     finalized: false,
-    player,
-    fov,
-    memory: updatedMemory
+    player: {},
+    fov: [[]],
+    memory: [[]]
 };
 const reducer = (state = initialState, action) => {
     switch (action.type) {
@@ -208,6 +210,31 @@ const reducer = (state = initialState, action) => {
                 },
                 () => {}
             ];
+        case ACCRETION_INIT: {
+            const { rooms, dungeon } = accreteRooms([], 30, undefined);
+            return [
+                {
+                    ...state,
+                    debugMsg: "Generated a room",
+                    dungeon,
+                    rooms,
+                    settled: false,
+                    fov: [],
+                    player: {},
+                    memory: [[]]
+                },
+                () => {
+                    return new Promise((resolve, reject) => {
+                        setInterval(
+                            () => {
+                                resolve(accretionInit());
+                            },
+                            1000
+                        );
+                    });
+                }
+            ];
+        }
         case DEBUG_INIT: {
             // don't finalize rooms
             const initialRooms = generateRooms({

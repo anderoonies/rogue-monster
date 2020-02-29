@@ -5,6 +5,7 @@ import { connect } from "react-redux";
 import {
     init,
     debugInit,
+    accretionInit,
     move
 } from "./actions";
 import { DEBUG } from "./constants";
@@ -14,7 +15,7 @@ const Renderer = ({ state, dispatch }) => {
         if (!DEBUG) {
             dispatch(init());
         } else {
-            dispatch(debugInit());
+            dispatch(accretionInit());
         }
     }, [!DEBUG ? state.settled : null]);
     useEffect(() => {

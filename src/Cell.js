@@ -5,7 +5,7 @@ const letters = {
     floor: ",",
     rock: "#",
     wall: "#",
-    player: "x"
+    player: "x",
 };
 
 export default function Cell({
@@ -21,7 +21,12 @@ export default function Cell({
     importantRooms
 }) {
     color = color || COLORS[type];
-    let bgColor = shadeHexColor(color, light);
+    let bgColor;
+    try {
+        bgColor = shadeHexColor(color, light);
+    } catch(e) {
+        debugger;
+    }
     if (memory && light === DARKNESS_MAX) {
         type = memory.type;
         letter = memory.type;
@@ -49,12 +54,12 @@ export default function Cell({
             light={light}
             type={type}
         >
-            {debug ? debugLetter : letters[type]}
+            {letter || letters[type]}
         </div>
     );
 }
 
-function shadeHexColor(color, darkness) {
+const shadeHexColor = (color, darkness) => {
     const decimal = Math.round((darkness / DARKNESS_MAX) * 6) / 6;
     const f = parseInt(color.slice(1), 16);
     // const t = percent < 0 ? 0 : 255;
