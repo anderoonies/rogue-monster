@@ -22,16 +22,24 @@ const VERTICAL_CORRIDOR_MAX_LENGTH = require("../constants")
     .VERTICAL_CORRIDOR_MAX_LENGTH;
 
 const CELLS = require("../constants").CELLS;
+const CELL_TYPES = require("../constants").CELL_TYPES;
+const EXIT_TYPE = require("../constants").EXIT_TYPE;
+const DEBUG_SHOW_ACCRETION = require("../constants").DEBUG_SHOW_ACCRETION;
 
 const CELL_WIDTH = 1;
 const WIDTH = 100;
 const HEIGHT = 50;
 
-const MAX_INT32 = 2147483647;
-const MINSTD = 16807;
-
 const clamp = (x, min, max) => {
     return Math.min(max, Math.max(x, min));
+};
+
+const boundX = value => {
+    return clamp(value, 0, WIDTH);
+};
+
+const boundY = value => {
+    return clamp(value, 0, HEIGHT);
 };
 
 const gridFromDimensions = (height, width, value) => {
@@ -40,8 +48,17 @@ const gridFromDimensions = (height, width, value) => {
     });
 };
 
-const coordinatesAreInMap = (row, col) => {
-    return row > 0 && row < HEIGHT && col > 0 && col < WIDTH;
+const coordinatesAreInMap = (row, col, dungeon) => {
+    if (dungeon === undefined) {
+        return row >= 0 && row < HEIGHT && col >= 0 && col < WIDTH;
+    } else {
+        return (
+            row >= 0 &&
+            row < dungeon.length &&
+            col >= 0 &&
+            col < dungeon[0].length
+        );
+    }
 };
 
 const randColorFrom = (baseColor, range) => {
@@ -84,6 +101,10 @@ const randomRange = (min, max) => {
     return Math.floor(Math.random() * (max - min)) + min;
 };
 
+const randomRangeInclusive = (min, max) => {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
 const shuffleList = l => {
     for (let i = 0; i < l.length; i++) {
         const j = randomRange(0, l.length - 1);
@@ -96,31 +117,143 @@ const shuffleList = l => {
     return l;
 };
 
-const drawContinuousShapeOnGrid = (room, topOffset, leftOffset, grid) => {
-    try {
-        for (let row = 0; row < room.length; row++) {
-            for (let col = 0; col < room[0].length; col++) {
-                if (room[row][col]) {
+const drawContinuousShapeOnGrid = (room, topOffset, leftOffset, grid, map) => {
+    for (let row = 0; row < room.length; row++) {
+        for (let col = 0; col < room[0].length; col++) {
+            if (room[row][col]) {
+                if (typeof map === "function") {
+                    grid[row + topOffset][col + leftOffset] = map(
+                        room[row][col]
+                    );
+                } else {
                     grid[row + topOffset][col + leftOffset] = room[row][col];
                 }
             }
         }
-    } catch (e) {
-        debugger;
     }
     return grid;
 };
 
-const drawIndividualCoordinatesOnGrid = (coordinates, grid) => {
+const drawDoorCoordinatesOnGrid = (coordinates, grid) => {
     coordinates.forEach(coordinate => {
-        grid[coordinate.y][coordinate.x] = coordinate;
+        if (coordinate)
+            grid[coordinate.y][coordinate.x] = 3 + coordinate.direction;
     });
     return grid;
 };
 
+const makeSymmetricalCrossRoom = () => {
+    const majorWidth = randomRange(4, 9);
+    const majorHeight = randomRange(4, 6);
+    let minorWidth = randomRange(4, 6);
+    let minorHeight = majorHeight - 1;
+    if (majorHeight % 2 === 0) {
+        minorWidth -= 1;
+    }
+
+    if (majorWidth % 2 === 0) {
+        minorHeight -= 1;
+    }
+    console.log(
+        `majorWidth: ${majorWidth}, majorHeight: ${majorHeight}, minorWidth: ${minorWidth}, minorHeight: ${minorHeight}`
+    );
+
+    let hyperspace = gridFromDimensions(majorHeight, majorWidth, 0);
+    for (let row = 0; row < majorHeight; row++) {
+        for (let col = 0; col < majorWidth; col++) {
+            if (
+                row >= majorHeight / 2 - minorHeight / 2 &&
+                row < majorHeight / 2 + minorHeight / 2
+            ) {
+                hyperspace[row][col] = 1;
+            }
+            if (
+                col >= majorWidth / 2 - minorWidth / 2 &&
+                col < majorWidth / 2 + minorWidth / 2
+            ) {
+                hyperspace[row][col] = 1;
+            }
+        }
+    }
+    return hyperspace;
+};
+
+const makeCircularRoom = () => {
+    let radius;
+    if (Math.random() < 0.05) {
+        // BIG circle
+        radius = randomRange(4, 10);
+    } else {
+        radius = randomRange(2, 4);
+    }
+    console.log(`r = ${radius}`);
+    const grid = gridFromDimensions(radius * 2, radius * 2, 0);
+    const center = [radius, radius];
+    let roomGrid = grid.map((row, rowIndex) => {
+        return row.map((cell, colIndex) => {
+            // |xp - xc|^2 + |yp - yc|^2 < r^2
+            const dx = colIndex - radius;
+            const dy = rowIndex - radius;
+            if (Math.pow(dy, 2) + Math.pow(dx, 2) < Math.pow(radius, 2)) {
+                return CELL_TYPES.FLOOR;
+            } else {
+                return CELL_TYPES.ROCK;
+            }
+        });
+    });
+    if (radius > 6 && Math.random() < 0.5) {
+        // add a bulge
+        const bulge = makeCircularRoom();
+        const topOffset = randomRange(3, radius - 3);
+        const leftOffset = randomRange(3, radius - 3);
+        // copy the room over to a bigger grid
+        let expandedGrid = gridFromDimensions(
+            grid.length + bulge.length + 10,
+            grid[0].length + bulge[0].length + 10,
+            0
+        );
+        expandedGrid = drawContinuousShapeOnGrid(roomGrid, 0, 0, expandedGrid);
+        roomGrid = drawContinuousShapeOnGrid(
+            bulge,
+            topOffset,
+            leftOffset,
+            expandedGrid
+        );
+    }
+    return roomGrid;
+};
+
+const makeRectangularRoom = () => {
+    const roomWidth = randomRange(3, 12);
+    const roomHeight = randomRange(3, 12);
+    return gridFromDimensions(roomHeight, roomWidth, CELL_TYPES.FLOOR);
+};
+
+const fillBlob = (hyperspace, row, col, fillValue) => {
+    if (hyperspace[row][col] === 1) {
+        hyperspace[row][col] = fillValue;
+    }
+    let newRow = 0;
+    let newCol = 0;
+    let blobSize = 1;
+    let transform;
+    for (let direction = 0; direction < 4; direction++) {
+        transform = DIR_TO_TRANSFORM[direction];
+        newRow = row + transform.y;
+        newCol = col + transform.x;
+        if (
+            coordinatesAreInMap(newRow, newCol, hyperspace) &&
+            hyperspace[newRow][newCol] === 1
+        ) {
+            blobSize += fillBlob(hyperspace, newRow, newCol, fillValue);
+        }
+    }
+    return blobSize;
+};
+
 const makeCARoom = () => {
-    const width = randomRange(5, 10);
-    const height = randomRange(5, 10);
+    const width = randomRange(5, 12);
+    const height = randomRange(5, 12);
 
     let cells = new Array(height).fill(0).map(row => {
         return new Array(width).fill(0);
@@ -184,13 +317,70 @@ const makeCARoom = () => {
         });
     }
 
-    // convert into actual room cells
-    return cells.map(row => {
-        return row.map(cell => {
-            return cell === 1 ? undefined : CELLS.floor;
-        });
-    });
-    return cells;
+    // CA rooms can be discontinous. find the largest blob, painting each with
+    // its own number. when the largest blob is found, just mask that blob
+    // number onto the grid.
+    let topBlobSize = 0;
+    let topBlobNumber = 2;
+    let blobNumber = 2;
+    let blobSize;
+
+    for (let row = 0; row < height; row++) {
+        for (let col = 0; col < width; col++) {
+            blobSize = fillBlob(cells, row, col, blobNumber);
+            if (blobSize > topBlobSize) {
+                topBlobSize = blobSize;
+                topBlobNumber = blobNumber;
+            }
+            blobNumber++;
+        }
+    }
+
+    let paintingGrid = gridFromDimensions(height, width, 0);
+    const paintedRoom = drawContinuousShapeOnGrid(
+        cells,
+        0,
+        0,
+        paintingGrid,
+        function(cell) {
+            return cell === topBlobNumber ? 1 : 0;
+        }
+    );
+    return paintedRoom;
+};
+
+const roomFitsAt = (dungeon, hyperspace, topOffset, leftOffset) => {
+    let xDungeon;
+    let yDungeon;
+    for (let yRoom = 0; yRoom < HEIGHT; yRoom++) {
+        for (let xRoom = 0; xRoom < WIDTH; xRoom++) {
+            if (
+                hyperspace[yRoom][xRoom] &&
+                !EXIT_TYPE(hyperspace[yRoom][xRoom])
+            ) {
+                // map the coordinates of the room in hypserpsace
+                // to coordinates of the room in the dungeon
+                yDungeon = yRoom + topOffset;
+                xDungeon = xRoom + leftOffset;
+
+                // confirm no overlaps in the 8x8 neighbors
+                for (let i = yDungeon - 1; i <= yDungeon + 1; i++) {
+                    for (let j = xDungeon - 1; j <= xDungeon + 1; j++) {
+                        if (
+                            !coordinatesAreInMap(i, j) ||
+                            !(
+                                dungeon[i][j] === CELL_TYPES.ROCK ||
+                                EXIT_TYPE(dungeon[i][j])
+                            )
+                        ) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return true;
 };
 
 const directionOfDoorSite = (grid, row, col) => {
@@ -300,7 +490,7 @@ const attachHallwayTo = (room, doorSites, hyperspace) => {
     }
 
     if (i == 4) {
-        return;
+        return { room, hyperspace };
     }
 
     const transform = DIR_TO_TRANSFORM[hallwayDirection];
@@ -324,28 +514,49 @@ const attachHallwayTo = (room, doorSites, hyperspace) => {
     let y = doorSites[hallwayDirection].y;
     for (i = 0; i < hallwayLength; i++) {
         if (coordinatesAreInMap(y, x)) {
-            hyperspace[y][x] = CELLS.floor;
+            hyperspace[y][x] = CELL_TYPES.FLOOR;
         }
         x += transform.x;
         y += transform.y;
     }
-    // door now needs to be at the end of the hallway
-    doorSites[hallwayDirection].x = x;
-    doorSites[hallwayDirection].y = y;
+    // all door sites except the opposite direction of the door
+    // now need to be at the end of the hallway.
+    y = clamp(y - transform.y, 0, HEIGHT - 1);
+    x = clamp(x - transform.x, 0, WIDTH - 1);
+    // for each of the doors, move the door to the end of the hallway.
+    for (let doorDirection = 0; doorDirection < 4; doorDirection++) {
+        let doorTransform = DIR_TO_TRANSFORM[doorDirection];
+        if (doorDirection !== oppositeDirection(hallwayDirection)) {
+            let doorY = y + doorTransform.y;
+            let doorX = x + doorTransform.x;
+            doorSites[doorDirection].y = doorY;
+            doorSites[doorDirection].x = doorX;
+        } else {
+            doorSites[doorDirection] = undefined;
+        }
+    }
 
     return { hyperspace, doorSites };
 };
 
 const designRoomInHyperspace = () => {
     // project onto hyperspace
-    let hyperspace = gridFromDimensions(HEIGHT, WIDTH, 0);
-    const roomType = randomRange(0, 0);
+    let hyperspace = gridFromDimensions(HEIGHT, WIDTH, CELL_TYPES.ROCK);
+    const roomType = randomRangeInclusive(0, 2);
     let room;
     switch (roomType) {
-        case ROOM_TYPES.CA:
-            room = makeCARoom();
-            break;
+        // case ROOM_TYPES.CA:
+        //     room = makeCARoom();
+        //     break;
+        // case ROOM_TYPES.CIRCLE:
+        //     room = makeCircularRoom();
+        //     break;
+        // case ROOM_TYPES.SYMMETRICAL_CROSS:
+        //     room = makeSymmetricalCrossRoom();
+        //     break;
         default:
+            room = makeCARoom();
+            // room = makeSymmetricalCrossRoom();
             break;
     }
     hyperspace = drawContinuousShapeOnGrid(
@@ -363,45 +574,208 @@ const designRoomInHyperspace = () => {
             hyperspace
         ));
     }
-    hyperspace = drawIndividualCoordinatesOnGrid(doorSites, hyperspace);
-    return hyperspace;
+    if (doorSites) {
+        hyperspace = drawDoorCoordinatesOnGrid(doorSites, hyperspace);
+    }
+    return { hyperspace, doorSites };
 };
 
-const flattenHyperspaceIntoDungeon = (hyperspace, dungeon) => {
+const flattenHyperspaceIntoDungeon = (
+    hyperspace,
+    dungeon,
+    topOffset,
+    leftOffset
+) => {
+    topOffset = topOffset || 0;
+    leftOffset = leftOffset || 0;
+    for (let row = 0; row < HEIGHT; row++) {
+        for (let col = 0; col < WIDTH; col++) {
+            if (
+                coordinatesAreInMap(row + topOffset, col + leftOffset) &&
+                hyperspace[row][col] !== CELL_TYPES.ROCK
+            ) {
+                dungeon[row + topOffset][col + leftOffset] =
+                    hyperspace[row][col];
+            }
+        }
+    }
+    return dungeon;
+};
+
+const oppositeDirection = direction => {
+    switch (direction) {
+        case DIRECTIONS.NORTH:
+            return DIRECTIONS.SOUTH;
+        case DIRECTIONS.SOUTH:
+            return DIRECTIONS.NORTH;
+        case DIRECTIONS.EAST:
+            return DIRECTIONS.WEST;
+        case DIRECTIONS.WEST:
+            return DIRECTIONS.EAST;
+        case DIRECTIONS.NO_DIRECTION:
+            return DIRECTIONS.NO_DIRECTION;
+        default:
+            return DIRECTIONS.NO_DIRECTION;
+    }
+};
+
+const transferRoomToDungeon = (dungeon, hyperspace, topOffset, leftOffset) => {
+    for (let row = 0; row < HEIGHT; row++) {
+        for (let col = 0; col < WIDTH; col++) {
+            if (
+                hyperspace[row][col] !== 0 &&
+                !EXIT_TYPE(hyperspace[row][col])
+            ) {
+                dungeon[row + topOffset][col + leftOffset] =
+                    hyperspace[row][col];
+            }
+        }
+    }
+    return dungeon;
+};
+
+const insertRoomAt = (
+    dungeon,
+    hyperspace,
+    topOffset,
+    leftOffset,
+    yRoom,
+    xRoom
+) => {
+    // i dont understand this weird recursive function yet but i'm gonna go for it
+    // alright so this recursive thing makes sense for water filling but it sucks in JS.
+
+    // i can use this to check if CA rooms are continuou :)
+
+    // don't draw exits
+    if (!EXIT_TYPE(hyperspace[yRoom][xRoom])) {
+        dungeon[yRoom + topOffset][xRoom + leftOffset] =
+            hyperspace[yRoom][xRoom];
+    }
+    let newY, newX, transform;
+    for (let dir = 0; dir < 4; dir++) {
+        transform = DIR_TO_TRANSFORM[dir];
+        newY = yRoom + transform.y;
+        newX = xRoom + transform.x;
+        if (
+            coordinatesAreInMap(newY, newX, hyperspace) &&
+            hyperspace[newY][newX] &&
+            coordinatesAreInMap(newY + topOffset, newX + leftOffset) &&
+            dungeon[newY + topOffset][newX + leftOffset] === CELL_TYPES.ROCK
+        ) {
+            dungeon = insertRoomAt(
+                dungeon,
+                hyperspace,
+                topOffset,
+                leftOffset,
+                newY,
+                newX
+            );
+        }
+    }
+
+    return dungeon;
+};
+
+const placeRoomInDungeon = (hyperspace, dungeon, doorSites) => {
+    // "slide hyperspace across real space, in a random but predetermined order, until
+    // the room matches up with a wall."
+    let randomizedCoordinates = Array.from(Array(WIDTH * HEIGHT).keys());
+    randomizedCoordinates = shuffleList(randomizedCoordinates);
+    for (let i = 0; i < WIDTH * HEIGHT; i++) {
+        const row = randomizedCoordinates[i] % HEIGHT;
+        const col = Math.floor(randomizedCoordinates[i] / HEIGHT);
+        const direction = directionOfDoorSite(dungeon, row, col);
+        const oppDirection = oppositeDirection(direction);
+        // the "opposite direction door" is this room's door, and it's being aligned
+        // with another room's door.
+        if (
+            oppDirection !== DIRECTIONS.NO_DIRECTION &&
+            doorSites[oppDirection] !== undefined &&
+            roomFitsAt(
+                dungeon,
+                hyperspace,
+                row - doorSites[oppDirection].y,
+                col - doorSites[oppDirection].x
+            )
+        ) {
+            dungeon = transferRoomToDungeon(
+                dungeon,
+                hyperspace,
+                row - doorSites[oppDirection].y,
+                col - doorSites[oppDirection].x
+            );
+            dungeon[row][col] = CELL_TYPES.DOOR;
+            break;
+        }
+    }
+    return dungeon;
+};
+
+const annotateCells = dungeon => {
+    // map to cells for rendering
     return dungeon.map((row, rowIndex) => {
-        return row.map((cell, colIndex) => {
-            return hyperspace[rowIndex][colIndex] !== 0
-                ? hyperspace[rowIndex][colIndex]
-                : cell;
+        return row.map((celltype, colIndex) => {
+            const annotatedCell = CELLS[celltype];
+            return {
+                ...annotatedCell,
+                row: rowIndex,
+                col: colIndex
+            };
         });
     });
 };
 
+const accreteRoom = dungeon => {
+    let { hyperspace, doorSites } = designRoomInHyperspace();
+    dungeon = placeRoomInDungeon(hyperspace, dungeon, doorSites);
+    return dungeon;
+};
+
 const accreteRooms = (rooms, nRooms, dungeon) => {
     if (dungeon === undefined) {
-        dungeon = gridFromDimensions(HEIGHT, WIDTH, CELLS.rock);
+        dungeon = gridFromDimensions(HEIGHT, WIDTH, 0);
     }
-    let hyperspace = designRoomInHyperspace();
-    dungeon = flattenHyperspaceIntoDungeon(hyperspace, dungeon);
-    // todo: check for hyperspace/dungeon collisions, etc.
+    let { hyperspace, doorSites } = designRoomInHyperspace();
+    // the initial room is put smack in the center
+    let fillX, fillY;
+    let foundFillPoint = false;
+    for (fillY = 0; fillY < HEIGHT && !foundFillPoint; fillY++) {
+        for (fillX = 0; fillX < WIDTH && !foundFillPoint; fillX++) {
+            if (hyperspace[fillY][fillX]) {
+                foundFillPoint = true;
+            }
+        }
+    }
+    dungeon = transferRoomToDungeon(dungeon, hyperspace, 0, 0);
+    for (let i = 0; i < nRooms; i++) {
+        dungeon = accreteRoom(dungeon);
+    }
     return {
         rooms,
-        dungeon
+        dungeon: annotateCells(dungeon),
+        dungeonRaw: dungeon
     };
 };
 
 module.exports = {
     // generateRooms,
     // triangulate,
-    // boundX,
-    // boundY,
+    boundX,
+    boundY,
     // finalizeRooms,
     // relaxRooms,
     // makeHallways,
     // bfsPlusExtra,
     // roomsToDungeon,
     // hallways,
-    accreteRooms
+    designRoomInHyperspace,
+    accreteRooms,
+    flattenHyperspaceIntoDungeon,
+    placeRoomInDungeon,
+    gridFromDimensions,
+    annotateCells,
+    coordinatesAreInMap
 };
 
 // const draw = rooms => {
@@ -512,13 +886,6 @@ module.exports = {
 //     };
 // };
 //
-// const boundX = value => {
-//     return Math.max(0, Math.min(WIDTH - 1, value));
-// };
-//
-// const boundY = value => {
-//     return Math.max(0, Math.min(HEIGHT - 1, value));
-// };
 //
 // const snap = distance => {
 //     return distance > 0

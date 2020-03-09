@@ -78,3 +78,27 @@ export function accretionInit() {
         type: ACCRETION_INIT
     };
 }
+
+export const DEBUG_ADD_ROOM = "DEBUG_ADD_ROOM";
+export function debugAddRoom() {
+    return {
+        type: DEBUG_ADD_ROOM
+    };
+}
+
+export const DEBUG_FIND_ROOM_PLACEMENT = "DEBUG_FIND_ROOM_PLACEMENT";
+export function debugFindRoomPlacement() {
+    return {
+        type: DEBUG_FIND_ROOM_PLACEMENT
+    };
+}
+
+export const CLICK = "CLICK";
+export function click({x, y, which}) {
+    return {
+        type: CLICK,
+        x,
+        y,
+        which
+    };
+}

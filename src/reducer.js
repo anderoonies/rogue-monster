@@ -6,25 +6,33 @@ import {
     INIT,
     DEBUG_INIT,
     DEBUG_HALLWAYS,
-    ACCRETION_INIT
+    ACCRETION_INIT,
+    DEBUG_FIND_ROOM_PLACEMENT,
+    DEBUG_ADD_ROOM,
+    CLICK
 } from "./actions";
 import Cell, { floorCell } from "./Cell";
 import {
-    generateRooms,
-    finalizeRooms,
-    relaxRooms,
-    triangulate,
+    accreteRooms,
+    flattenHyperspaceIntoDungeon,
     boundX,
     boundY,
-    makeHallways,
-    hallways,
-    roomsToDungeon,
-    bfsPlusExtra,
-    accreteRooms
+    designRoomInHyperspace,
+    gridFromDimensions,
+    annotateCells,
+    placeRoomInDungeon
 } from "./levels/levelCreator.js";
-import { debugRelax, debugHallways, debugTriangulate, accretionInit } from "./actions";
+import {
+    debugRelax,
+    debugHallways,
+    debugTriangulate,
+    accretionInit,
+    debugFindRoomPlacement,
+    debugAddRoom
+} from "./actions";
 import { scan } from "./light";
-import { FOV, WIDTH, HEIGHT } from "./constants";
+import { FOV, WIDTH, HEIGHT, DEBUG_SHOW_ACCRETION } from "./constants";
+import { pathDistance, traceShortestPath } from "./levels/dijkstra";
 
 const clipFOV = (player, dungeon) => {
     let adjustedPlayer = {
@@ -150,6 +158,14 @@ const flatten = (clippedFOV, clippedMemory, light) => {
 // );
 // const fov = flatten(clippedFOV, clippedMemory, lightMap);
 
+const initialDungeonInProgress = gridFromDimensions(HEIGHT, WIDTH, 0);
+const { dungeon, dungeonRaw } = DEBUG_SHOW_ACCRETION
+    ? accreteRooms([], 0, initialDungeonInProgress)
+    : {
+          dungeon: annotateCells(initialDungeonInProgress),
+          dungeonRaw: initialDungeonInProgress
+      };
+
 const initialState = {
     rooms: [],
     dungeon: [[]],
@@ -159,65 +175,141 @@ const initialState = {
     finalized: false,
     player: {},
     fov: [[]],
-    memory: [[]]
+    memory: [[]],
+    dungeonInProgress: dungeonRaw,
+    dungeon: dungeon,
+    displayDungeon: dungeon,
+    dijkstraLeft: undefined,
+    dijkstraRight: undefined,
+    debugMsg:
+        "This is my initial dungeon room (: Hit any key to add another room."
 };
 const reducer = (state = initialState, action) => {
     switch (action.type) {
         case INIT:
-            const [initialRooms, hallwayRooms] = finalizeRooms({
-                radius: 50,
-                nRooms: 150
-            });
-            const player = {
-                x: boundX(initialRooms[0].center.x),
-                y: boundY(initialRooms[0].center.y)
-            };
-            const initialDungeon = roomsToDungeon(
-                initialRooms,
-                hallwayRooms,
-                WIDTH,
-                HEIGHT
-            );
-            const initialMemory = new Array(initialDungeon.length)
-                .fill(undefined)
-                .map(row => {
-                    return new Array(initialDungeon[0].length).fill(undefined);
-                });
-            const {
-                clippedFOV,
-                centeredPlayer,
-                leftOffset,
-                topOffset
-            } = clipFOV(player, initialDungeon);
-            const { lightMap, updatedMemory, clippedMemory } = light(
-                centeredPlayer,
-                clippedFOV,
-                initialMemory,
-                leftOffset,
-                topOffset
-            );
-            const fov = flatten(clippedFOV, clippedMemory, lightMap);
+            // const [initialRooms, hallwayRooms] = finalizeRooms({
+            //     radius: 50,
+            //     nRooms: 150
+            // });
+            // const player = {
+            //     x: boundX(initialRooms[0].center.x),
+            //     y: boundY(initialRooms[0].center.y)
+            // };
+            // const initialDungeon = roomsToDungeon(
+            //     initialRooms,
+            //     hallwayRooms,
+            //     WIDTH,
+            //     HEIGHT
+            // );
+            // const initialMemory = new Array(initialDungeon.length)
+            //     .fill(undefined)
+            //     .map(row => {
+            //         return new Array(initialDungeon[0].length).fill(undefined);
+            //     });
+            // const {
+            //     clippedFOV,
+            //     centeredPlayer,
+            //     leftOffset,
+            //     topOffset
+            // } = clipFOV(player, initialDungeon);
+            // const { lightMap, updatedMemory, clippedMemory } = light(
+            //     centeredPlayer,
+            //     clippedFOV,
+            //     initialMemory,
+            //     leftOffset,
+            //     topOffset
+            // );
+            // const fov = flatten(clippedFOV, clippedMemory, lightMap);
             return [
                 {
-                    ...state,
-                    dungeon: initialDungeon,
-                    rooms: initialRooms,
-                    hallwayRooms,
-                    settled: true,
-                    fov,
-                    player,
-                    memory: updatedMemory
+                    ...state
+                    // dungeon: initialDungeon,
+                    // rooms: initialRooms,
+                    // hallwayRooms,
+                    // settled: true,
+                    // fov,
+                    // player,
+                    // memory: updatedMemory
                 },
                 () => {}
             ];
-        case ACCRETION_INIT: {
-            const { rooms, dungeon } = accreteRooms([], 30, undefined);
+        case DEBUG_FIND_ROOM_PLACEMENT: {
+            let dungeon = placeRoomInDungeon(
+                state.pendingRoom.hyperspace,
+                state.dungeonInProgress,
+                state.pendingRoom.doorSites,
+                true
+            );
+            let annotatedDungeon = annotateCells(dungeon);
             return [
                 {
                     ...state,
-                    debugMsg: "Generated a room",
+                    dungeon: annotatedDungeon,
+                    displayDungeon: annotatedDungeon,
+                    dungeonInProgress: dungeon,
+                    debugMsg: "I put the room here (:"
+                },
+                () => {
+                    return new Promise((resolve, reject) => {
+                        window.addEventListener(
+                            "keydown",
+                            e => {
+                                if (e.code === "Space") {
+                                    resolve(debugAddRoom());
+                                }
+                            },
+                            { once: true }
+                        );
+                    });
+                }
+            ];
+        }
+        case DEBUG_ADD_ROOM: {
+            const { hyperspace, doorSites } = designRoomInHyperspace();
+            const dungeon = annotateCells(
+                flattenHyperspaceIntoDungeon(
+                    hyperspace,
+                    gridFromDimensions(HEIGHT, WIDTH, 0),
+                    0,
+                    0
+                )
+            );
+            return [
+                {
+                    ...state,
+                    dungeon,
+                    displayDungeon: dungeon,
+                    pendingRoom: {
+                        hyperspace,
+                        doorSites
+                    },
+                    debugMsg: "I created this room (:"
+                },
+                () => {
+                    return new Promise((resolve, reject) => {
+                        window.addEventListener(
+                            "keydown",
+                            e => {
+                                if (e.code === "Space") {
+                                    resolve(debugFindRoomPlacement());
+                                }
+                            },
+                            { once: true }
+                        );
+                    });
+                }
+            ];
+        }
+        case ACCRETION_INIT: {
+            const { rooms, dungeon } = accreteRooms([], 20, undefined);
+            return [
+                {
+                    ...state,
+                    debugMsg:
+                        "Generated a dungeon. Hit space to make a new one.",
                     dungeon,
                     rooms,
+                    displayDungeon: dungeon,
                     settled: false,
                     fov: [],
                     player: {},
@@ -225,149 +317,23 @@ const reducer = (state = initialState, action) => {
                 },
                 () => {
                     return new Promise((resolve, reject) => {
-                        setInterval(
-                            () => {
-                                resolve(accretionInit());
-                            },
-                            1000
-                        );
-                    });
-                }
-            ];
-        }
-        case DEBUG_INIT: {
-            // don't finalize rooms
-            const initialRooms = generateRooms({
-                radius: 20,
-                nRooms: 75
-            });
-            const player = {
-                x: boundX(initialRooms[0].center.x),
-                y: boundY(initialRooms[0].center.y)
-            };
-            const initialDungeon = roomsToDungeon(
-                initialRooms,
-                [],
-                WIDTH,
-                HEIGHT
-            );
-            const initialMemory = new Array(initialDungeon.length)
-                .fill(undefined)
-                .map(row => {
-                    return new Array(initialDungeon[0].length).fill(undefined);
-                });
-            const {
-                clippedFOV,
-                centeredPlayer,
-                leftOffset,
-                topOffset
-            } = clipFOV(player, initialDungeon);
-            const { lightMap, updatedMemory, clippedMemory } = light(
-                centeredPlayer,
-                clippedFOV,
-                initialMemory,
-                leftOffset,
-                topOffset
-            );
-            const fov = flatten(clippedFOV, clippedMemory, lightMap);
-            return [
-                {
-                    ...state,
-                    debugMsg: "Generated rooms",
-                    dungeon: initialDungeon,
-                    rooms: initialRooms,
-                    settled: false,
-                    fov,
-                    player,
-                    memory: updatedMemory
-                },
-                () => {
-                    return new Promise((resolve, reject) => {
-                        window.addEventListener(
-                            "keydown",
-                            () => {
-                                resolve(debugRelax());
-                            },
-                            { once: true }
-                        );
-                    });
-                }
-            ];
-        }
-        case DEBUG_RELAX: {
-            const [relaxedRooms, updated] = relaxRooms(state.rooms);
-            const dungeon = roomsToDungeon(relaxedRooms, [], WIDTH, HEIGHT);
-            return [
-                {
-                    ...state,
-                    debugMsg: "Relaxing rooms...",
-                    rooms: relaxedRooms,
-                    dungeon,
-                    settled: !updated
-                },
-                state.settled
-                    ? () => {
-                          return debugTriangulate();
-                      }
-                    : () => {
-                          return new Promise((resolve, reject) => {
-                              setTimeout(() => {
-                                  resolve(debugRelax());
-                              }, 100);
-                          });
-                      }
-            ];
-        }
-        case DEBUG_TRIANGULATE: {
-            const { edges, importantRooms } = triangulate(state.rooms);
-            return [
-                {
-                    ...state,
-                    debugMsg:
-                        'Selected "important" rooms. Hit any key to continue.',
-                    edges,
-                    importantRooms
-                },
-                () => {
-                    return new Promise((resolve, reject) => {
                         window.addEventListener(
                             "keydown",
                             e => {
-                                resolve(debugHallways());
+                                resolve(accretionInit());
                             },
                             { once: true }
                         );
                     });
                 }
-            ];
-        }
-        case DEBUG_HALLWAYS: {
-            const spannedRooms = bfsPlusExtra(
-                state.importantRooms,
-                state.edges
-            );
-            const hallwayRooms = hallways(spannedRooms);
-            return [
-                {
-                    ...state,
-                    debugMsg: "Hallways created",
-                    dungeon: roomsToDungeon(
-                        state.rooms,
-                        hallwayRooms,
-                        WIDTH,
-                        HEIGHT
-                    ),
-                    hallwayRooms
-                },
-                () => {}
             ];
         }
         case MOVE: {
             const transform = action.transform;
             const updatedPlayer = {
-                ...state.player,
-                y: boundY(state.player.y + transform.y),
-                x: boundX(state.player.x + transform.x)
+                ...state.player
+                // y: boundY(state.player.y + transform.y),
+                // x: boundX(state.player.x + transform.x)
             };
             const {
                 clippedFOV,
@@ -392,6 +358,77 @@ const reducer = (state = initialState, action) => {
                 },
                 () => {}
             ];
+        }
+        case CLICK: {
+            debugger;
+            let annotatedDungeon = state.dungeon.map(row => {
+                return row.map(cell => {
+                    return { ...cell };
+                });
+            });
+            if (action.which === "left") {
+                state = {
+                    ...state,
+                    dijkstraLeft: {
+                        x: action.x,
+                        y: action.y
+                    }
+                };
+                annotatedDungeon[state.dijkstraLeft.y][
+                    state.dijkstraLeft.x
+                ].letter = "l";
+            } else {
+                state = {
+                    ...state,
+                    dijkstraRight: {
+                        x: action.x,
+                        y: action.y
+                    }
+                };
+                annotatedDungeon[state.dijkstraRight.y][
+                    state.dijkstraRight.x
+                ].letter = "r";
+            }
+            if (state.dijkstraLeft && state.dijkstraRight) {
+                const { distance, nodeMap } = pathDistance(
+                    state.dijkstraLeft,
+                    state.dijkstraRight,
+                    annotatedDungeon
+                );
+                let path;
+                // nodeMap.forEach((row, rowIndex) =>
+                //     row.forEach((node, colIndex) => {
+                //         if (node.distance < Infinity)
+                //             annotatedDungeon[rowIndex][colIndex].letter =
+                //                 node.distance;
+                //     })
+                // );
+                if (distance !== Infinity) {
+                    path = traceShortestPath(
+                        nodeMap,
+                        state.dijkstraLeft,
+                        state.dijkstraRight
+                    );
+                }
+                if (path) {
+                    path.forEach(node => {
+                        annotatedDungeon[node.y][node.x].letter = "o";
+                    });
+                }
+                return [
+                    {
+                        ...state,
+                        debugMsg: `It's ${distance} between [${state.dijkstraLeft.y}, ${state.dijkstraLeft.x}] and [${state.dijkstraRight.y}, ${state.dijkstraRight.x}]`,
+                        displayDungeon: annotatedDungeon
+                    },
+                    () => {}
+                ];
+            } else {
+                return [
+                    { ...state, displayDungeon: annotatedDungeon },
+                    () => {}
+                ];
+            }
         }
         default:
             return [state, () => {}];

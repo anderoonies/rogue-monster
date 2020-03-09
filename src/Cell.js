@@ -1,11 +1,16 @@
 import React from "react";
-import { DIM_THRESHOLD, DARK_THRESHOLD, DARKNESS_MAX, COLORS } from "./constants";
+import {
+    DIM_THRESHOLD,
+    DARK_THRESHOLD,
+    DARKNESS_MAX,
+    COLORS
+} from "./constants";
 
 const letters = {
     floor: ",",
     rock: "#",
     wall: "#",
-    player: "x",
+    player: "x"
 };
 
 export default function Cell({
@@ -21,36 +26,24 @@ export default function Cell({
     importantRooms
 }) {
     color = color || COLORS[type];
-    let bgColor;
-    try {
-        bgColor = shadeHexColor(color, light);
-    } catch(e) {
-        debugger;
-    }
+    // let bgColor = shadeHexColor(color, light);
+    let bgColor = color;
     if (memory && light === DARKNESS_MAX) {
         type = memory.type;
         letter = memory.type;
-        bgColor = shadeHexColor(color, 30)
-    }
-    if (debug && importantRooms) {
-        const important = importantRooms.reduce((alreadyImportant, room) => {
-            return (
-                alreadyImportant ||
-                (room.left <= col &&
-                    room.right > col &&
-                    room.top <= row &&
-                    room.bottom > row)
-            );
-        }, false);
-        bgColor = important ? "red" : bgColor;
+        bgColor = shadeHexColor(color, 30);
     }
     return (
         <div
+            onContextMenu={e => {
+                e.preventDefault();
+                return false;
+            }}
             className={`cell ${type}`}
             key={`row${row}col${col}`}
             row={row}
             col={col}
-            style={{ backgroundColor: bgColor }}
+            style={{ backgroundColor: bgColor, cursor: "crosshair" }}
             light={light}
             type={type}
         >
@@ -74,8 +67,14 @@ const shadeHexColor = (color, darkness) => {
     const B = f & 0x0000ff;
     return (
         "#" +
-        componentToHex(Math.max(0, Math.min(Math.round(R - R * decimal, 2), 255))) +
-        componentToHex(Math.max(0, Math.min(Math.round(G - G * decimal, 2), 255))) +
-        componentToHex(Math.max(0, Math.min(Math.round(B - B * decimal, 2), 255)))
+        componentToHex(
+            Math.max(0, Math.min(Math.round(R - R * decimal, 2), 255))
+        ) +
+        componentToHex(
+            Math.max(0, Math.min(Math.round(G - G * decimal, 2), 255))
+        ) +
+        componentToHex(
+            Math.max(0, Math.min(Math.round(B - B * decimal, 2), 255))
+        )
     );
-}
+};
