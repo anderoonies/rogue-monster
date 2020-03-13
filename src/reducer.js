@@ -15,10 +15,7 @@ import Cell, { floorCell } from "./Cell";
 import {
     accreteRooms,
     flattenHyperspaceIntoDungeon,
-    boundX,
-    boundY,
     designRoomInHyperspace,
-    gridFromDimensions,
     annotateCells,
     placeRoomInDungeon
 } from "./levels/levelCreator.js";
@@ -30,6 +27,7 @@ import {
     debugFindRoomPlacement,
     debugAddRoom
 } from "./actions";
+import { boundX, boundY, gridFromDimensions } from "./utils";
 import { scan } from "./light";
 import { FOV, WIDTH, HEIGHT, DEBUG_SHOW_ACCRETION } from "./constants";
 import { pathDistance, traceShortestPath } from "./levels/dijkstra";
@@ -254,6 +252,7 @@ const reducer = (state = initialState, action) => {
                         window.addEventListener(
                             "keydown",
                             e => {
+                                debugger;
                                 if (e.code === "Space") {
                                     resolve(debugAddRoom());
                                 }
@@ -301,7 +300,7 @@ const reducer = (state = initialState, action) => {
             ];
         }
         case ACCRETION_INIT: {
-            const { rooms, dungeon } = accreteRooms([], 20, undefined);
+            const { rooms, dungeon } = accreteRooms([], 45, undefined);
             return [
                 {
                     ...state,
@@ -315,17 +314,7 @@ const reducer = (state = initialState, action) => {
                     player: {},
                     memory: [[]]
                 },
-                () => {
-                    return new Promise((resolve, reject) => {
-                        window.addEventListener(
-                            "keydown",
-                            e => {
-                                resolve(accretionInit());
-                            },
-                            { once: true }
-                        );
-                    });
-                }
+                () => {}
             ];
         }
         case MOVE: {
@@ -390,11 +379,14 @@ const reducer = (state = initialState, action) => {
                 ].letter = "r";
             }
             if (state.dijkstraLeft && state.dijkstraRight) {
-                const { distance, nodeMap } = pathDistance(
-                    state.dijkstraLeft,
-                    state.dijkstraRight,
-                    annotatedDungeon
-                );
+                const { distance, nodeMap } = pathDistance({
+                    start: state.dijkstraLeft,
+                    end: state.dijkstraRight,
+                    dungeon: annotatedDungeon,
+                    inaccessible: cell => {
+                        return cell.type === "rock";
+                    }
+                });
                 let path;
                 // nodeMap.forEach((row, rowIndex) =>
                 //     row.forEach((node, colIndex) => {

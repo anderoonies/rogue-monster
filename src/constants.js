@@ -1,5 +1,5 @@
 // global
-export const WIDTH = 100;
+export const WIDTH = 60;
 export const HEIGHT = 50;
 export const CELL_WIDTH = 1;
 export const FOV = 30;
@@ -23,7 +23,8 @@ export const COLORS = {
     player: "#299c32",
     door: "#299c32",
     rock: "#777463",
-    hallway: "#bfbfbf"
+    hallway: "#bfbfbf",
+    lake: "blue"
 };
 
 // rooms
@@ -39,7 +40,7 @@ export const VERTICAL_CORRIDOR_MAX_LENGTH = 9;
 export const ROOM_TYPES = {
     CA: 0,
     CIRCLE: 1,
-    SYMMETRICAL_CROSS: 2,
+    SYMMETRICAL_CROSS: 2
 };
 
 export const CELL_TYPES = {
@@ -50,7 +51,8 @@ export const CELL_TYPES = {
     EXIT_NORTH: 3,
     EXIT_EAST: 4,
     EXIT_SOUTH: 5,
-    EXIT_WEST: 6
+    EXIT_WEST: 6,
+    LAKE: 7
 };
 
 export const EXIT_TYPE = CELL_TYPE => {
@@ -129,6 +131,11 @@ export const CELLS = {
         color: COLORS.door,
         letter: "<"
     },
+    [CELL_TYPES.LAKE]: {
+        type: "lake",
+        color: COLORS.lake,
+        letter: "~"
+    }
 };
 
 // CA constants
@@ -167,24 +174,45 @@ const operators = {
 
 export const CA = {
     rules: {
-        [0]: [
-            {
-                adjacentType: 1,
-                // will turn
-                into: 1,
-                // if there are
-                operator: operators.gte,
-                nNeighbors: 5
-            }
-        ],
-        [1]: [
-            {
-                adjacentType: 0,
-                into: 0,
-                operator: operators.gte,
-                nNeighbors: 6
-            }
-        ]
+        ROOM_GENERATION: {
+            [0]: [
+                {
+                    adjacentType: 1,
+                    // will turn
+                    into: 1,
+                    // if there are
+                    operator: operators.gte,
+                    nNeighbors: 5
+                }
+            ],
+            [1]: [
+                {
+                    adjacentType: 0,
+                    into: 0,
+                    operator: operators.gte,
+                    nNeighbors: 6
+                }
+            ]
+        },
+        LAKE_GENERATION: {
+            // "ffffftttt", "ffffttttt"
+            [0]: [
+                {
+                    adjacentType: 1,
+                    into: 1,
+                    operator: operators.gte,
+                    nNeighbors: 5
+                }
+            ],
+            [1]: [
+                {
+                    adjacentType: 1 ,
+                    into: 0,
+                    operator: operators.lte,
+                    nNeighbors: 4
+                }
+            ]
+        }
     }
 };
 

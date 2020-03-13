@@ -10,7 +10,7 @@ import {
     debugAddRoom,
     click
 } from "./actions";
-import { DEBUG, DEBUG_SHOW_ACCRETION } from "./constants";
+import { DEBUG, DEBUG_SHOW_ACCRETION, WIDTH, HEIGHT } from "./constants";
 
 const Renderer = ({ state, dispatch }) => {
     useEffect(() => {
@@ -33,9 +33,9 @@ const Renderer = ({ state, dispatch }) => {
                 const dungeonRect = document
                     .getElementById("dungeon")
                     .getBoundingClientRect();
-                const x = Math.floor((e.pageX - dungeonRect.left) / 20);
-                const y = Math.floor((e.pageY - dungeonRect.top) / 20);
-                if (x > 150 || y > 50) {
+                const x = Math.floor((e.x - dungeonRect.left) / 20);
+                const y = Math.floor((e.y - dungeonRect.top) / 20);
+                if (x < 0 || x > WIDTH || y < 0 || y > HEIGHT) {
                     return;
                 }
                 dispatch(
@@ -45,6 +45,11 @@ const Renderer = ({ state, dispatch }) => {
                         which: e.which === 1 ? "left" : "right"
                     })
                 );
+            });
+            window.addEventListener("keydown", e => {
+                if (e.code === "Space") {
+                    dispatch(accretionInit());
+                }
             });
         }
     }, [!DEBUG ? state.settled : null]);
