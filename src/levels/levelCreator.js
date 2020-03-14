@@ -772,7 +772,7 @@ const lakeDisruptsPassability = ({ dungeon, lake, y, x }) => {
                     adjacentRow = y + row + transform.y;
                     adjacentCol = x + col + transform.x;
                     adjacentCell = dungeonWithLake[adjacentRow][adjacentCol];
-                    if (adjacentCell === 1) {
+                    if (adjacentCell === 1 || adjacentCell === 2) {
                         perimeterCells.add([adjacentRow, adjacentCol]);
                     }
                 }
