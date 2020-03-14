@@ -786,28 +786,30 @@ const lakeDisruptsPassability = ({ dungeon, lake, y, x }) => {
     let endCell;
     // i from 0 to n - 1
     for (let i = 0; i < perimeterCells.length - 1; i++) {
-        startCell = perimeterCells[i];
-        endCell = perimeterCells[i + 1];
-        debugger;
-        walk = pathDistance({
-            start: {
-                y: startCell[0],
-                x: startCell[1]
-            },
-            end: {
-                y: endCell[0],
-                x: endCell[1]
-            },
-            dungeon: dungeonWithLake,
-            inaccessible: cell => {
-                return cell === CELL_TYPES.ROCK || cell === CELL_TYPES.LAKE;
+        for (let j = i; j < perimeterCells.length; j++) {
+            startCell = perimeterCells[i];
+            endCell = perimeterCells[i + 1];
+            debugger;
+            walk = pathDistance({
+                start: {
+                    y: startCell[0],
+                    x: startCell[1]
+                },
+                end: {
+                    y: endCell[0],
+                    x: endCell[1]
+                },
+                dungeon: dungeonWithLake,
+                inaccessible: cell => {
+                    return cell === CELL_TYPES.ROCK || cell === CELL_TYPES.LAKE;
+                }
+            });
+            if (walk.distance === Infinity) {
+                // console.log(`${startCell} -> ${endCell} is inaccessible`);
+                return true;
+            } else {
+                // console.log(`${startCell} -> ${endCell} is ACCESSIBLE`);
             }
-        });
-        if (walk.distance === Infinity) {
-            // console.log(`${startCell} -> ${endCell} is inaccessible`);
-            return true;
-        } else {
-            // console.log(`${startCell} -> ${endCell} is ACCESSIBLE`);
         }
     }
     return false;
