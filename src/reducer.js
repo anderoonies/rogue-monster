@@ -252,7 +252,6 @@ const reducer = (state = initialState, action) => {
                         window.addEventListener(
                             "keydown",
                             e => {
-                                debugger;
                                 if (e.code === "Space") {
                                     resolve(debugAddRoom());
                                 }
@@ -349,7 +348,6 @@ const reducer = (state = initialState, action) => {
             ];
         }
         case CLICK: {
-            debugger;
             let annotatedDungeon = state.dungeon.map(row => {
                 return row.map(cell => {
                     return { ...cell };
@@ -384,7 +382,7 @@ const reducer = (state = initialState, action) => {
                     end: state.dijkstraRight,
                     dungeon: annotatedDungeon,
                     inaccessible: cell => {
-                        return cell.type === "rock";
+                        return cell.type === "rock" || cell.type === "lake";
                     }
                 });
                 let path;

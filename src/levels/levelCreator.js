@@ -93,20 +93,30 @@ const shuffleList = l => {
 };
 
 const drawContinuousShapeOnGrid = (room, topOffset, leftOffset, grid, map) => {
+    let copiedGrid = grid.map(row => {
+        return row.map(cell => {
+            if (typeof cell === "object") {
+                return Object.assign({}, cell);
+            } else {
+                return cell;
+            }
+        });
+    });
     for (let row = 0; row < room.length; row++) {
         for (let col = 0; col < room[0].length; col++) {
             if (room[row][col]) {
                 if (typeof map === "function") {
-                    grid[row + topOffset][col + leftOffset] = map(
+                    copiedGrid[row + topOffset][col + leftOffset] = map(
                         room[row][col]
                     );
                 } else {
-                    grid[row + topOffset][col + leftOffset] = room[row][col];
+                    copiedGrid[row + topOffset][col + leftOffset] =
+                        room[row][col];
                 }
             }
         }
     }
-    return grid;
+    return copiedGrid;
 };
 
 const drawDoorCoordinatesOnGrid = (coordinates, grid) => {
@@ -736,9 +746,72 @@ const annotateCells = dungeon => {
     });
 };
 
-const lakeDisruptsPassability = ({dungeon, lake, y, x}) => {
+const lakeDisruptsPassability = ({ dungeon, lake, y, x }) => {
+    let transform;
+    let adjacentCell;
+    let adjacentRow;
+    let adjacentCol;
+    let dungeonWithLake = drawContinuousShapeOnGrid(
+        lake,
+        y,
+        x,
+        dungeon,
+        cell => {
+            return cell === 1 ? CELL_TYPES.LAKE : 0;
+        }
+    );
+    // generate a perimeter of the lake:
+    // all the non-lake cells to the left/top/right/bottom of a lake cell.
+    // perimeter cells are adjusted to the dungeon
+    let perimeterCells = new Set();
+    for (let row = 0; row < lake.length; row++) {
+        for (let col = 0; col < lake[0].length; col++) {
+            if (lake[row][col] === 1) {
+                for (let direction = 0; direction < 4; direction++) {
+                    transform = DIR_TO_TRANSFORM[direction];
+                    adjacentRow = y + row + transform.y;
+                    adjacentCol = x + col + transform.x;
+                    adjacentCell = dungeonWithLake[adjacentRow][adjacentCol];
+                    if (adjacentCell === 1) {
+                        perimeterCells.add([adjacentRow, adjacentCol]);
+                    }
+                }
+            }
+        }
+    }
+    perimeterCells = Array.from(perimeterCells);
+    // now, for each cell in the perimeter, perform a walk.
+    let walk;
+    let startCell;
+    let endCell;
+    // i from 0 to n - 1
+    for (let i = 0; i < perimeterCells.length - 1; i++) {
+        startCell = perimeterCells[i];
+        endCell = perimeterCells[i + 1];
+        debugger;
+        walk = pathDistance({
+            start: {
+                y: startCell[0],
+                x: startCell[1]
+            },
+            end: {
+                y: endCell[0],
+                x: endCell[1]
+            },
+            dungeon: dungeonWithLake,
+            inaccessible: cell => {
+                return cell === CELL_TYPES.ROCK || cell === CELL_TYPES.LAKE;
+            }
+        });
+        if (walk.distance === Infinity) {
+            // console.log(`${startCell} -> ${endCell} is inaccessible`);
+            return true;
+        } else {
+            // console.log(`${startCell} -> ${endCell} is ACCESSIBLE`);
+        }
+    }
     return false;
-}
+};
 
 const addLakes = dungeon => {
     let lakeMap = gridFromDimensions(HEIGHT, WIDTH, 0);
@@ -749,8 +822,8 @@ const addLakes = dungeon => {
     let blob, minX, minY, maxX, maxY;
 
     for (
-        let lakeMaxHeight = 15, lakeMaxWidth = 30;
-        lakeMaxHeight >= 10;
+        let lakeMaxHeight = 50, lakeMaxWidth = 50;
+        lakeMaxWidth >= 10;
         lakeMaxHeight--, lakeMaxWidth -= 2
     ) {
         ({ blob, minX, minY, maxX, maxY } = runCA({
@@ -778,7 +851,7 @@ const addLakes = dungeon => {
                     x: proposedLakeX
                 })
             ) {
-                drawContinuousShapeOnGrid(
+                dungeon = drawContinuousShapeOnGrid(
                     blob,
                     proposedLakeY,
                     proposedLakeX,
@@ -832,7 +905,6 @@ const addLoops = dungeon => {
                 continue;
             }
 
-            debugger;
             walkDistance = pathDistance({
                 start: { x: forwardX, y: forwardY },
                 end: { x: behindX, y: behindY },
