@@ -13,13 +13,17 @@
     "react-scripts": "3.3.1",
     "redux": "^4.0.5",
     "redux-logger": "^3.0.6",
+    "seedrandom": "^3.0.5",
+    "uglifyjs-webpack-plugin": "^2.2.0",
+    "webpack-cli": "^3.3.11",
     "xterm": "^4.4.0"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "build:bundle": "webpack --config webpack.config.js"
   },
   "eslintConfig": {
     "extends": "react-app"

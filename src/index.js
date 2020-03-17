@@ -65,5 +65,5 @@ ReactDOM.render(
     <Provider store={store}>
         <Renderer />
     </Provider>,
-    document.getElementById("root")
+    document.getElementById("debug-root")
 );

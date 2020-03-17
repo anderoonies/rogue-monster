@@ -8,23 +8,22 @@ import {
     accretionInit,
     move,
     debugAddRoom,
-    click
+    click,
+    debugShowCA
 } from "./actions";
-import { DEBUG, DEBUG_SHOW_ACCRETION, WIDTH, HEIGHT } from "./constants";
+import { DEBUG_FLAGS, WIDTH, HEIGHT } from "./constants";
 
 const Renderer = ({ state, dispatch }) => {
     useEffect(() => {
-        if (!DEBUG) {
+        if (!DEBUG_FLAGS.DEBUG) {
             dispatch(init());
         } else {
-            if (DEBUG_SHOW_ACCRETION) {
-                window.addEventListener(
-                    "keydown",
-                    e => {
-                        dispatch(debugAddRoom());
-                    },
-                    { once: true }
-                );
+            if (DEBUG_FLAGS.SHOW_ACCRETION) {
+                dispatch(debugAddRoom());
+            } else if (DEBUG_FLAGS.ROOMS_ONLY) {
+                dispatch(debugAddRoom());
+            } else if (DEBUG_FLAGS.SHOW_CA) {
+                dispatch(debugShowCA());
             } else {
                 dispatch(accretionInit());
             }
@@ -33,8 +32,8 @@ const Renderer = ({ state, dispatch }) => {
                 const dungeonRect = document
                     .getElementById("dungeon")
                     .getBoundingClientRect();
-                const x = Math.floor((e.x - dungeonRect.left) / 20);
-                const y = Math.floor((e.y - dungeonRect.top) / 20);
+                const x = Math.floor((e.x - dungeonRect.left) / 10);
+                const y = Math.floor((e.y - dungeonRect.top) / 10);
                 if (x < 0 || x > WIDTH || y < 0 || y > HEIGHT) {
                     return;
                 }
@@ -46,15 +45,10 @@ const Renderer = ({ state, dispatch }) => {
                     })
                 );
             });
-            window.addEventListener("keydown", e => {
-                if (e.code === "Space") {
-                    dispatch(accretionInit());
-                }
-            });
         }
-    }, [!DEBUG ? state.settled : null]);
+    }, []);
     useEffect(() => {
-        if (!DEBUG) {
+        if (!DEBUG_FLAGS.DEBUG) {
             window.addEventListener("keydown", e => {
                 switch (e.code) {
                     case "ArrowRight":
@@ -87,7 +81,7 @@ const Renderer = ({ state, dispatch }) => {
             });
         }
     }, []);
-    return !DEBUG ? (
+    return !DEBUG_FLAGS.DEBUG ? (
         state.fov.map((row, rowIndex) => {
             return (
                 <div className="row" key={`fov${rowIndex}`}>
@@ -102,6 +96,7 @@ const Renderer = ({ state, dispatch }) => {
             {state.debugMsg}
             <div
                 id="dungeon"
+                className="noselect"
                 key="dungeon"
                 onContextMenu={() => {
                     return false;
@@ -122,6 +117,18 @@ const Renderer = ({ state, dispatch }) => {
                     );
                 })}
             </div>
+            <button
+                className="step-button noselect"
+                onClick={(e) => {
+                    if (typeof state.debugStep === "function") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dispatch(state.debugStep());
+                    }
+                }}
+            >
+                Step
+            </button>
         </div>
     );
 };

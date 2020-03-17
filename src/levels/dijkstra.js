@@ -13,6 +13,7 @@ const dungeonToNodeMap = ({ dungeon, inaccessible }) => {
     return dungeon.map((row, rowIndex) => {
         return row.map((cell, colIndex) => {
             // 2. assign every node a tentative distance. 0 for current, inf for others. mark initial as current
+            // debugger;
             return {
                 x: colIndex,
                 y: rowIndex,
@@ -25,7 +26,7 @@ const dungeonToNodeMap = ({ dungeon, inaccessible }) => {
     });
 };
 
-const getNeighbors = (row, col, nodeMap) => {
+const getNeighbors = ({ row, col, nodeMap }, revisit = false) => {
     let neighbors = [];
     let transform;
     let candidateNeighbor;
@@ -37,15 +38,62 @@ const getNeighbors = (row, col, nodeMap) => {
             continue;
         }
         candidateNeighbor = nodeMap[y][x];
-        if (candidateNeighbor.accessible && !candidateNeighbor.visited) {
+        if (
+            candidateNeighbor.accessible &&
+            (revisit || !candidateNeighbor.visited)
+        ) {
             neighbors.push(candidateNeighbor);
         }
     }
     return neighbors;
 };
 
-export const pathDistance = ({ start, end, dungeon, inaccessible }) => {
+export const propagateShortcut = ({ nodeMap, start }) => {
+    // this algorithm doesnt work!
+    let currentNode = nodeMap[start.y][start.x];
+    currentNode.distance = 0;
+    currentNode.visited = true;
+    let neighbors;
+    let distance;
+    let unvisitedNodes = [currentNode];
+
+    console.log(`propagating shortcut from ${start}`);
+    debugger;
+    while (unvisitedNodes.length) {
+        currentNode = unvisitedNodes.pop();
+        for (let neighbor of getNeighbors(
+            { row: currentNode.y, col: currentNode.x, nodeMap },
+            true
+        )) {
+            // 3. for current node, consider all unvisited neighbors and calc tentative distance. mark distance of all nodes to the min of previous or just-calculated
+            distance = 1 + currentNode.distance;
+            if (distance < neighbor.distance) {
+                neighbor.distance = distance;
+                neighbor.parent = currentNode;
+                console.log(`i reduced the distance to ${neighbor}!`);
+                unvisitedNodes.push(neighbor);
+            }
+        }
+    }
+    return nodeMap;
+};
+
+export const pathDistance = ({
+    start,
+    end,
+    dungeon,
+    inaccessible,
+    reuseNodeMap
+}) => {
     // 1. mark all nodes as visited, create a set of unvisited nodes
+    if (reuseNodeMap !== undefined) {
+        return {
+            distance:
+                reuseNodeMap[end.y][end.x].distance -
+                reuseNodeMap[start.y][start.x].distance,
+            nodeMap: reuseNodeMap
+        };
+    }
     let nodeMap = dungeonToNodeMap({ dungeon, inaccessible });
     let currentNode = nodeMap[start.y][start.x];
     currentNode.distance = 0;
@@ -62,7 +110,11 @@ export const pathDistance = ({ start, end, dungeon, inaccessible }) => {
     }, {});
 
     while (true) {
-        neighbors = getNeighbors(currentNode.y, currentNode.x, nodeMap);
+        neighbors = getNeighbors({
+            row: currentNode.y,
+            col: currentNode.x,
+            nodeMap
+        });
         for (let neighbor of neighbors) {
             // 3. for current node, consider all unvisited neighbors and calc tentative distance. mark distance of all nodes to the min of previous or just-calculated
             distance = 1 + currentNode.distance;

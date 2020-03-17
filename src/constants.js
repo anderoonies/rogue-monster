@@ -1,6 +1,4 @@
 // global
-export const WIDTH = 60;
-export const HEIGHT = 50;
 export const CELL_WIDTH = 1;
 export const FOV = 30;
 
@@ -12,8 +10,15 @@ export const DARKNESS_MAX = 100;
 export const LIGHT_RANGE = 5;
 
 // # and flags~
-export const DEBUG = true;
-export const DEBUG_SHOW_ACCRETION = false;
+export const DEBUG_FLAGS = {
+    DEBUG: true,
+    ROOMS_ONLY: false,
+    SHOW_ACCRETION: false,
+    SHOW_CA: false
+};
+
+export const WIDTH = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 60;
+export const HEIGHT = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 50;
 
 // colors
 export const COLORS = {
@@ -24,7 +29,8 @@ export const COLORS = {
     door: "#299c32",
     rock: "#777463",
     hallway: "#bfbfbf",
-    lake: "blue"
+    lake: "#5e5eca",
+    shallow_water: "#acade8"
 };
 
 // rooms
@@ -59,6 +65,22 @@ export const EXIT_TYPE = CELL_TYPE => {
     return (
         CELL_TYPE <= CELL_TYPES.EXIT_WEST && CELL_TYPE >= CELL_TYPES.EXIT_NORTH
     );
+};
+
+export const PASSIBLE_TYPES = [
+    CELL_TYPES.FLOOR,
+    CELL_TYPES.DOOR,
+    CELL_TYPES.SHALLOW_WATER
+];
+
+export const IMPASSIBLE_TYPES = [CELL_TYPES.ROCK, CELL_TYPES.LAKE];
+
+export const IMPASSIBLE = cell => {
+    return IMPASSIBLE_TYPES.indexOf(cell) > -1;
+};
+
+export const PASSIBLE = cell => {
+    return PASSIBLE_TYPES.indexOf(cell) > -1;
 };
 
 export const HALLWAY_CHANCE = 0.15;
@@ -135,6 +157,11 @@ export const CELLS = {
         type: "lake",
         color: COLORS.lake,
         letter: "~"
+    },
+    [CELL_TYPES.SHALLOW_WATER]: {
+        type: "shallow_water",
+        color: COLORS.shallow_water,
+        letter: "`"
     }
 };
 
@@ -187,10 +214,10 @@ export const CA = {
             ],
             [1]: [
                 {
-                    adjacentType: 0,
+                    adjacentType: 1,
                     into: 0,
-                    operator: operators.gte,
-                    nNeighbors: 6
+                    operator: operators.lt,
+                    nNeighbors: 2
                 }
             ]
         },
@@ -206,7 +233,7 @@ export const CA = {
             ],
             [1]: [
                 {
-                    adjacentType: 1 ,
+                    adjacentType: 1,
                     into: 0,
                     operator: operators.lte,
                     nNeighbors: 4

@@ -9,6 +9,9 @@ import {
     ACCRETION_INIT,
     DEBUG_FIND_ROOM_PLACEMENT,
     DEBUG_ADD_ROOM,
+    DEBUG_SHOW_CA,
+    DEBUG_CA_GENERATION,
+    DEBUG_CA_PAINT,
     CLICK
 } from "./actions";
 import Cell, { floorCell } from "./Cell";
@@ -17,7 +20,12 @@ import {
     flattenHyperspaceIntoDungeon,
     designRoomInHyperspace,
     annotateCells,
-    placeRoomInDungeon
+    placeRoomInDungeon,
+    runCAGeneration,
+    randomRange,
+    drawContinuousShapeOnGrid,
+    findLargestBlob,
+    coordinatesAreInMap
 } from "./levels/levelCreator.js";
 import {
     debugRelax,
@@ -25,11 +33,22 @@ import {
     debugTriangulate,
     accretionInit,
     debugFindRoomPlacement,
-    debugAddRoom
+    debugAddRoom,
+    debugShowCA,
+    debugCAGeneration,
+    debugCAPaint
 } from "./actions";
 import { boundX, boundY, gridFromDimensions } from "./utils";
 import { scan } from "./light";
-import { FOV, WIDTH, HEIGHT, DEBUG_SHOW_ACCRETION } from "./constants";
+import {
+    FOV,
+    WIDTH,
+    HEIGHT,
+    DEBUG_FLAGS,
+    IMPASSIBLE,
+    CA,
+    CELL_TYPES
+} from "./constants";
 import { pathDistance, traceShortestPath } from "./levels/dijkstra";
 
 const clipFOV = (player, dungeon) => {
@@ -157,7 +176,7 @@ const flatten = (clippedFOV, clippedMemory, light) => {
 // const fov = flatten(clippedFOV, clippedMemory, lightMap);
 
 const initialDungeonInProgress = gridFromDimensions(HEIGHT, WIDTH, 0);
-const { dungeon, dungeonRaw } = DEBUG_SHOW_ACCRETION
+const { dungeon, dungeonRaw } = DEBUG_FLAGS.SHOW_ACCRETION
     ? accreteRooms([], 0, initialDungeonInProgress)
     : {
           dungeon: annotateCells(initialDungeonInProgress),
@@ -179,8 +198,7 @@ const initialState = {
     displayDungeon: dungeon,
     dijkstraLeft: undefined,
     dijkstraRight: undefined,
-    debugMsg:
-        "This is my initial dungeon room (: Hit any key to add another room."
+    debugMsg: "Wait a second..."
 };
 const reducer = (state = initialState, action) => {
     switch (action.type) {
@@ -245,21 +263,10 @@ const reducer = (state = initialState, action) => {
                     dungeon: annotatedDungeon,
                     displayDungeon: annotatedDungeon,
                     dungeonInProgress: dungeon,
-                    debugMsg: "I put the room here (:"
+                    debugMsg: "I put the room here (:",
+                    debugStep: debugAddRoom
                 },
-                () => {
-                    return new Promise((resolve, reject) => {
-                        window.addEventListener(
-                            "keydown",
-                            e => {
-                                if (e.code === "Space") {
-                                    resolve(debugAddRoom());
-                                }
-                            },
-                            { once: true }
-                        );
-                    });
-                }
+                () => {}
             ];
         }
         case DEBUG_ADD_ROOM: {
@@ -281,21 +288,12 @@ const reducer = (state = initialState, action) => {
                         hyperspace,
                         doorSites
                     },
-                    debugMsg: "I created this room (:"
+                    debugMsg: "I created this room (:",
+                    debugStep: DEBUG_FLAGS.SHOW_ACCRETION
+                        ? debugFindRoomPlacement
+                        : debugAddRoom
                 },
-                () => {
-                    return new Promise((resolve, reject) => {
-                        window.addEventListener(
-                            "keydown",
-                            e => {
-                                if (e.code === "Space") {
-                                    resolve(debugFindRoomPlacement());
-                                }
-                            },
-                            { once: true }
-                        );
-                    });
-                }
+                () => {}
             ];
         }
         case ACCRETION_INIT: {
@@ -304,14 +302,115 @@ const reducer = (state = initialState, action) => {
                 {
                     ...state,
                     debugMsg:
-                        "Generated a dungeon. Hit space to make a new one.",
+                        "Generated a dungeon. Hit Step to make a new one.",
                     dungeon,
                     rooms,
                     displayDungeon: dungeon,
                     settled: false,
                     fov: [],
                     player: {},
-                    memory: [[]]
+                    memory: [[]],
+                    debugStep: accretionInit
+                },
+                () => {}
+            ];
+        }
+        case DEBUG_SHOW_CA: {
+            const dungeon = gridFromDimensions(HEIGHT, WIDTH, 0);
+            const width = randomRange(5, 12);
+            const height = randomRange(5, 12);
+            let cells = gridFromDimensions(height, width, 0).map(
+                (row, rowIndex) => {
+                    return row.map(cell => {
+                        return Math.random() > 0.5 ? 1 : 0;
+                    });
+                }
+            );
+            const hyperspace = drawContinuousShapeOnGrid(
+                cells,
+                HEIGHT / 2 - Math.floor(height / 2),
+                WIDTH / 2 - Math.floor(width / 2),
+                dungeon
+            );
+            return [
+                {
+                    ...state,
+                    debugMsg: "Hit Step to start Generation 1.",
+                    CACells: cells,
+                    displayDungeon: annotateCells(
+                        flattenHyperspaceIntoDungeon(hyperspace, dungeon, 0, 0)
+                    ),
+                    nGenerations: 0,
+                    debugStep: debugCAGeneration
+                },
+                () => {}
+            ];
+        }
+        case DEBUG_CA_PAINT: {
+            const { blob } = findLargestBlob({
+                cells: state.CACells,
+                height: state.CACells.length,
+                width: state.CACells[0].length
+            });
+
+            const dungeon = gridFromDimensions(HEIGHT, WIDTH, 0);
+            let hyperspace = drawContinuousShapeOnGrid(
+                state.CACells,
+                HEIGHT / 2 - Math.floor(state.CACells.length / 2),
+                WIDTH / 2 - Math.floor(state.CACells[0].length / 2),
+                dungeon,
+                cell => {
+                    return cell > 1 ? CELL_TYPES.FLOOR : 0;
+                }
+            );
+            debugger;
+            hyperspace = drawContinuousShapeOnGrid(
+                blob,
+                HEIGHT / 2 - Math.floor(state.CACells.length / 2),
+                WIDTH / 2 - Math.floor(state.CACells[0].length / 2),
+                hyperspace,
+                cell => {
+                    return cell === 1 ? CELL_TYPES.LAKE : 0;
+                }
+            );
+            debugger;
+            return [
+                {
+                    ...state,
+                    debugMsg: `Largest blob selected.`,
+                    displayDungeon: annotateCells(
+                        flattenHyperspaceIntoDungeon(hyperspace, dungeon, 0, 0)
+                    ),
+                    nGenerations: 0,
+                    debugStep: debugShowCA
+                },
+                () => {}
+            ];
+        }
+        case DEBUG_CA_GENERATION: {
+            const generation = state.nGenerations + 1;
+            const dungeon = gridFromDimensions(HEIGHT, WIDTH, 0);
+            const cells = runCAGeneration({
+                cells: state.CACells,
+                rules: CA.rules.ROOM_GENERATION
+            });
+            const hyperspace = drawContinuousShapeOnGrid(
+                cells,
+                HEIGHT / 2 - Math.floor(cells.length / 2),
+                WIDTH / 2 - Math.floor(cells[0].length / 2),
+                dungeon
+            );
+            return [
+                {
+                    ...state,
+                    debugMsg: `Generation ${generation}`,
+                    CACells: cells,
+                    displayDungeon: annotateCells(
+                        flattenHyperspaceIntoDungeon(hyperspace, dungeon, 0, 0)
+                    ),
+                    nGenerations: generation,
+                    debugStep:
+                        generation === 5 ? debugCAPaint : debugCAGeneration
                 },
                 () => {}
             ];
@@ -348,6 +447,9 @@ const reducer = (state = initialState, action) => {
             ];
         }
         case CLICK: {
+            if (!action.which || !coordinatesAreInMap(action.y, action.x)) {
+                return [state, () => {}];
+            }
             let annotatedDungeon = state.dungeon.map(row => {
                 return row.map(cell => {
                     return { ...cell };
@@ -364,7 +466,7 @@ const reducer = (state = initialState, action) => {
                 annotatedDungeon[state.dijkstraLeft.y][
                     state.dijkstraLeft.x
                 ].letter = "l";
-            } else {
+            } else if (action.which === "right" && action.x && action.y) {
                 state = {
                     ...state,
                     dijkstraRight: {
@@ -382,7 +484,7 @@ const reducer = (state = initialState, action) => {
                     end: state.dijkstraRight,
                     dungeon: annotatedDungeon,
                     inaccessible: cell => {
-                        return cell.type === "rock" || cell.type === "lake";
+                        return cell.type === "lake" || cell.type === "rock";
                     }
                 });
                 let path;

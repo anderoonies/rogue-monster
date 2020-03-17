@@ -86,6 +86,27 @@ export function debugAddRoom() {
     };
 }
 
+export const DEBUG_SHOW_CA = "DEBUG_SHOW_CA";
+export function debugShowCA() {
+    return {
+        type: DEBUG_SHOW_CA
+    };
+}
+
+export const DEBUG_CA_GENERATION = "DEBUG_CA_GENERATION";
+export function debugCAGeneration() {
+    return {
+        type: DEBUG_CA_GENERATION
+    };
+}
+
+export const DEBUG_CA_PAINT = "DEBUG_CA_PAINT";
+export function debugCAPaint() {
+    return {
+        type: DEBUG_CA_PAINT
+    };
+}
+
 export const DEBUG_FIND_ROOM_PLACEMENT = "DEBUG_FIND_ROOM_PLACEMENT";
 export function debugFindRoomPlacement() {
     return {

@@ -20,11 +20,14 @@ const VERTICAL_CORRIDOR_MAX_LENGTH = require("../constants")
 const CELLS = require("../constants").CELLS;
 const CELL_TYPES = require("../constants").CELL_TYPES;
 const EXIT_TYPE = require("../constants").EXIT_TYPE;
-const DEBUG_SHOW_ACCRETION = require("../constants").DEBUG_SHOW_ACCRETION;
+const DEBUG_FLAGS = require("../constants").DEBUG_FLAGS;
 
 const CELL_WIDTH = 1;
 const WIDTH = require("../constants").WIDTH;
 const HEIGHT = require("../constants").HEIGHT;
+
+const IMPASSIBLE = require("../constants").IMPASSIBLE;
+const PASSIBLE = require("../constants").PASSIBLE;
 
 const {
     coordinatesAreInMap,
@@ -35,6 +38,9 @@ const {
 } = require("../utils");
 
 const pathDistance = require("./dijkstra").pathDistance;
+const propagateShortcut = require("./dijkstra").propagateShortcut;
+
+require("seedrandom")("demo", { global: true });
 
 const randColorFrom = (baseColor, range) => {
     const f = parseInt(baseColor.slice(1), 16);
@@ -162,20 +168,15 @@ const makeSymmetricalCrossRoom = () => {
 
 const makeCircularRoom = () => {
     let radius;
-    if (Math.random() < 0.05) {
-        // BIG circle
-        radius = randomRange(4, 10);
-    } else {
-        radius = randomRange(2, 4);
-    }
-    const grid = gridFromDimensions(radius * 2, radius * 2, 0);
+    radius = randomRange(2, 6);
+    const grid = gridFromDimensions(radius**2, radius**2, 0);
     const center = [radius, radius];
     let roomGrid = grid.map((row, rowIndex) => {
         return row.map((cell, colIndex) => {
             // |xp - xc|^2 + |yp - yc|^2 < r^2
             const dx = colIndex - radius;
             const dy = rowIndex - radius;
-            if (Math.pow(dy, 2) + Math.pow(dx, 2) < Math.pow(radius, 2)) {
+            if (dy ** 2 + dx ** 2 < radius ** 2 + radius) {
                 return CELL_TYPES.FLOOR;
             } else {
                 return CELL_TYPES.ROCK;
@@ -234,19 +235,9 @@ const fillBlob = (hyperspace, row, col, fillValue) => {
     return blobSize;
 };
 
-const runCA = ({ width, height, rules, nIterations, startingPercent }) => {
-    let cells = new Array(height).fill(0).map(row => {
-        return new Array(width).fill(0);
-    });
-    // fill the cells with random initial values
-    cells = cells.map((row, rowIndex) => {
-        return row.map(cell => {
-            return Math.random() > (startingPercent ? startingPercent : 0.5)
-                ? 1
-                : 0;
-        });
-    });
-
+const runCAGeneration = ({ cells, rules }) => {
+    const height = cells.length;
+    const width = cells[0].length;
     const getCellNeighbors = (row, col) => {
         let neighbors = [];
         for (
@@ -289,19 +280,16 @@ const runCA = ({ width, height, rules, nIterations, startingPercent }) => {
         return newCellState;
     };
 
-    for (let tick = 0; tick < nIterations; tick++) {
-        cells = cells.map((rowState, row) => {
-            return rowState.map((cell, col) => {
-                const neighbors = getCellNeighbors(row, col);
-                const newCell = transformCell(cell, neighbors);
-                return newCell;
-            });
+    return cells.map((rowState, row) => {
+        return rowState.map((cell, col) => {
+            const neighbors = getCellNeighbors(row, col);
+            const newCell = transformCell(cell, neighbors);
+            return newCell;
         });
-    }
+    });
+};
 
-    // CA rooms can be discontinous. find the largest blob, painting each with
-    // its own number. when the largest blob is found, just mask that blob
-    // number onto the grid.
+const findLargestBlob = ({ cells, height, width }) => {
     let topBlobSize = 0;
     let topBlobNumber = 2;
     let blobNumber = 2;
@@ -352,8 +340,36 @@ const runCA = ({ width, height, rules, nIterations, startingPercent }) => {
             }
         }
     }
-
     return { blob: paintedRoom, minX, minY, maxX, maxY };
+};
+
+const runCA = ({ width, height, rules, nIterations, startingPercent }) => {
+    let cells = new Array(height).fill(0).map(row => {
+        return new Array(width).fill(0);
+    });
+    // fill the cells with random initial values
+    cells = cells.map((row, rowIndex) => {
+        return row.map(cell => {
+            return Math.random() > (startingPercent ? startingPercent : 0.5)
+                ? 1
+                : 0;
+        });
+    });
+
+    for (let tick = 0; tick < nIterations; tick++) {
+        cells = runCAGeneration({ cells, width, height, rules });
+    }
+
+    // CA rooms can be discontinous. find the largest blob, painting each with
+    // its own number. when the largest blob is found, just mask that blob
+    // number onto the grid.
+    let { blob, minX, minY, maxX, maxY } = findLargestBlob({
+        cells,
+        height,
+        width
+    });
+
+    return { blob, minX, minY, maxX, maxY };
 };
 
 const makeCARoom = () => {
@@ -426,12 +442,10 @@ const directionOfDoorSite = (grid, row, col) => {
     return solutionDirection;
 };
 
-const chooseRandomDoorSites = room => {
+const chooseRandomDoorSites = (room, topOffset, leftOffset) => {
     // the room is copied from hyperspace onto the center of a map to do
     // geometry calculations
     let grid = gridFromDimensions(HEIGHT, WIDTH, 0);
-    let leftOffset = WIDTH / 2;
-    let topOffset = HEIGHT / 2;
     let doorSites = [];
     grid = drawContinuousShapeOnGrid(room, topOffset, leftOffset, grid);
     let traceRow, traceCol, transform, doorSiteFailed;
@@ -565,28 +579,32 @@ const designRoomInHyperspace = () => {
     const roomType = randomRangeInclusive(0, 2);
     let room;
     switch (roomType) {
-        // case ROOM_TYPES.CA:
-        //     room = makeCARoom();
-        //     break;
-        // case ROOM_TYPES.CIRCLE:
-        //     room = makeCircularRoom();
-        //     break;
-        // case ROOM_TYPES.SYMMETRICAL_CROSS:
-        //     room = makeSymmetricalCrossRoom();
-        //     break;
+        case ROOM_TYPES.CA:
+            room = makeCARoom();
+            break;
+        case ROOM_TYPES.CIRCLE:
+            debugger;
+            room = makeCircularRoom();
+            break;
+        case ROOM_TYPES.SYMMETRICAL_CROSS:
+            room = makeSymmetricalCrossRoom();
+            break;
         default:
             room = makeCARoom();
-            // room = makeSymmetricalCrossRoom();
             break;
     }
     hyperspace = drawContinuousShapeOnGrid(
         room,
-        HEIGHT / 2,
-        WIDTH / 2,
+        HEIGHT / 2 - Math.floor(room.length / 2),
+        WIDTH / 2 - Math.floor(room[0].length / 2),
         hyperspace
     );
 
-    let doorSites = chooseRandomDoorSites(room);
+    let doorSites = chooseRandomDoorSites(
+        room,
+        HEIGHT / 2 - Math.floor(room.length / 2),
+        WIDTH / 2 - Math.floor(room[0].length / 2)
+    );
     if (Math.random() < HALLWAY_CHANCE) {
         ({ hyperspace, doorSites } = attachHallwayTo(
             room,
@@ -594,9 +612,7 @@ const designRoomInHyperspace = () => {
             hyperspace
         ));
     }
-    if (doorSites) {
-        hyperspace = drawDoorCoordinatesOnGrid(doorSites, hyperspace);
-    }
+    hyperspace = drawDoorCoordinatesOnGrid(doorSites, hyperspace);
     return { hyperspace, doorSites };
 };
 
@@ -746,6 +762,47 @@ const annotateCells = dungeon => {
     });
 };
 
+const floodFill = ({ dungeon, dry, impassible, fillValue }) => {
+    let floodHyperspace = dungeon.map(row => {
+        return row.slice();
+    });
+    let startY, startX;
+    for (let row = 0; row < dungeon.length; row++) {
+        for (let col = 0; col < dungeon[0].length; col++) {
+            if (dry(dungeon[row][col]) && !impassible(dungeon[row][col])) {
+                startY = row;
+                startX = col;
+                break;
+            }
+        }
+    }
+
+    let unvisited = [{ x: startX, y: startY }];
+    let currentCell;
+    let transform;
+    let newCell, newY, newX;
+    while (unvisited.length) {
+        currentCell = unvisited.pop();
+        floodHyperspace[currentCell.y][currentCell.x] = fillValue;
+        for (let direction = 0; direction < 4; direction++) {
+            transform = DIR_TO_TRANSFORM[direction];
+            newY = currentCell.y + transform.y;
+            newX = currentCell.x + transform.x;
+            if (!coordinatesAreInMap(newY, newX)) {
+                continue;
+            }
+            newCell = floodHyperspace[newY][newX];
+            if (dry(newCell) && !impassible(newCell)) {
+                unvisited.push({
+                    y: newY,
+                    x: newX
+                });
+            }
+        }
+    }
+    return floodHyperspace;
+};
+
 const lakeDisruptsPassability = ({ dungeon, lake, y, x }) => {
     let transform;
     let adjacentCell;
@@ -760,59 +817,109 @@ const lakeDisruptsPassability = ({ dungeon, lake, y, x }) => {
             return cell === 1 ? CELL_TYPES.LAKE : 0;
         }
     );
-    // generate a perimeter of the lake:
-    // all the non-lake cells to the left/top/right/bottom of a lake cell.
-    // perimeter cells are adjusted to the dungeon
-    let perimeterCells = new Set();
-    for (let row = 0; row < lake.length; row++) {
-        for (let col = 0; col < lake[0].length; col++) {
-            if (lake[row][col] === 1) {
-                for (let direction = 0; direction < 4; direction++) {
-                    transform = DIR_TO_TRANSFORM[direction];
-                    adjacentRow = y + row + transform.y;
-                    adjacentCol = x + col + transform.x;
-                    adjacentCell = dungeonWithLake[adjacentRow][adjacentCol];
-                    if (adjacentCell === 1 || adjacentCell === 2) {
-                        perimeterCells.add([adjacentRow, adjacentCol]);
+
+    const fill = floodFill({
+        dungeon: dungeonWithLake,
+        dry: cell => {
+            return !(cell === 9);
+        },
+        impassible: IMPASSIBLE,
+        // todo: special paint colors? :)
+        fillValue: 9
+    });
+
+    for (let row = 0; row < fill.length; row++) {
+        for (let col = 0; col < fill[0].length; col++) {
+            if (fill[row][col] === CELL_TYPES.FLOOR) {
+                return true;
+            }
+        }
+    }
+    return false;
+
+    // // generate a perimeter of the lake:
+    // // all the non-lake cells to the left/top/right/bottom of a lake cell.
+    // // perimeter cells are adjusted to the dungeon
+    // let perimeterCells = new Set();
+    // for (let row = 0; row < lake.length; row++) {
+    //     for (let col = 0; col < lake[0].length; col++) {
+    //         if (lake[row][col] === 1) {
+    //             for (let direction = 0; direction < 4; direction++) {
+    //                 transform = DIR_TO_TRANSFORM[direction];
+    //                 adjacentRow = y + row + transform.y;
+    //                 adjacentCol = x + col + transform.x;
+    //                 adjacentCell = dungeonWithLake[adjacentRow][adjacentCol];
+    //                 if (adjacentCell === 1 || adjacentCell === 2) {
+    //                     perimeterCells.add([adjacentRow, adjacentCol]);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // perimeterCells = Array.from(perimeterCells);
+    // // now, for each cell in the perimeter, perform a walk.
+    // let walk;
+    // let startCell;
+    // let endCell;
+    // // i from 0 to n - 1
+    // for (let i = 0; i < perimeterCells.length - 1; i++) {
+    //     for (let j = i; j < perimeterCells.length; j++) {
+    //         startCell = perimeterCells[i];
+    //         endCell = perimeterCells[i + 1];
+    //         walk = pathDistance({
+    //             start: {
+    //                 y: startCell[0],
+    //                 x: startCell[1]
+    //             },
+    //             end: {
+    //                 y: endCell[0],
+    //                 x: endCell[1]
+    //             },
+    //             dungeon: dungeonWithLake,
+    //             inaccessible: cell => {
+    //                 return cell === CELL_TYPES.ROCK || cell === CELL_TYPES.LAKE;
+    //             }
+    //         });
+    //         if (walk.distance === Infinity) {
+    //             return true;
+    //         } else {
+    //         }
+    //     }
+    // }
+    // return false;
+};
+
+const createWreath = ({
+    wreathLiquid,
+    wreathWidth,
+    dungeon,
+    deepLiquidValue
+}) => {
+    let hyperspace = dungeon.map(row => {
+        return row.slice();
+    });
+    for (let row = 0; row < HEIGHT; row++) {
+        for (let col = 0; col < WIDTH; col++) {
+            if (dungeon[row][col] === deepLiquidValue) {
+                for (let i = row - wreathWidth; i <= row + wreathWidth; i++) {
+                    for (
+                        let j = col - wreathWidth;
+                        j <= col + wreathWidth;
+                        j++
+                    ) {
+                        if (
+                            coordinatesAreInMap(i, j) &&
+                            dungeon[i][j] !== deepLiquidValue &&
+                            (row - i) ** 2 + (col - j) ** 2 <= wreathWidth ** 2
+                        ) {
+                            hyperspace[i][j] = wreathLiquid;
+                        }
                     }
                 }
             }
         }
     }
-    perimeterCells = Array.from(perimeterCells);
-    // now, for each cell in the perimeter, perform a walk.
-    let walk;
-    let startCell;
-    let endCell;
-    // i from 0 to n - 1
-    for (let i = 0; i < perimeterCells.length - 1; i++) {
-        for (let j = i; j < perimeterCells.length; j++) {
-            startCell = perimeterCells[i];
-            endCell = perimeterCells[i + 1];
-            debugger;
-            walk = pathDistance({
-                start: {
-                    y: startCell[0],
-                    x: startCell[1]
-                },
-                end: {
-                    y: endCell[0],
-                    x: endCell[1]
-                },
-                dungeon: dungeonWithLake,
-                inaccessible: cell => {
-                    return cell === CELL_TYPES.ROCK || cell === CELL_TYPES.LAKE;
-                }
-            });
-            if (walk.distance === Infinity) {
-                // console.log(`${startCell} -> ${endCell} is inaccessible`);
-                return true;
-            } else {
-                // console.log(`${startCell} -> ${endCell} is ACCESSIBLE`);
-            }
-        }
-    }
-    return false;
+    return hyperspace;
 };
 
 const addLakes = dungeon => {
@@ -826,7 +933,7 @@ const addLakes = dungeon => {
     for (
         let lakeMaxHeight = 50, lakeMaxWidth = 50;
         lakeMaxWidth >= 10;
-        lakeMaxHeight--, lakeMaxWidth -= 2
+        lakeMaxHeight -= 5, lakeMaxWidth -= 5
     ) {
         ({ blob, minX, minY, maxX, maxY } = runCA({
             width: 30,
@@ -862,6 +969,12 @@ const addLakes = dungeon => {
                         return cell === 1 ? CELL_TYPES.LAKE : 0;
                     }
                 );
+                dungeon = createWreath({
+                    wreathLiquid: CELL_TYPES.SHALLOW_WATER,
+                    wreathWidth: 2,
+                    dungeon,
+                    deepLiquidValue: CELL_TYPES.LAKE
+                });
                 break;
             }
         }
@@ -875,7 +988,8 @@ const addLoops = dungeon => {
 
     let row, col, transform, opposite;
     let forwardX, forwardY, behindX, behindY, forwardSpace, behindSpace;
-    let walkDistance;
+    let distance;
+    let nodeMap;
     for (let i = 0; i < WIDTH * HEIGHT; i++) {
         row = randomizedCoordinates[i] % HEIGHT;
         col = Math.floor(randomizedCoordinates[i] / HEIGHT);
@@ -907,17 +1021,31 @@ const addLoops = dungeon => {
                 continue;
             }
 
-            walkDistance = pathDistance({
+            ({ distance, nodeMap } = pathDistance({
                 start: { x: forwardX, y: forwardY },
                 end: { x: behindX, y: behindY },
                 dungeon: dungeon,
-                inaccessible: cell => {
-                    return cell === 0;
-                }
-            });
+                inaccessible: IMPASSIBLE
+                // reuseNodeMap: nodeMap
+            }));
 
-            if (walkDistance.distance > 20) {
+            if (distance > 20) {
                 dungeon[row][col] = CELL_TYPES.DOOR;
+                // nodeMap[row][col] = {
+                //     x: col,
+                //     y: row,
+                //     visited: false,
+                //     distance: 0,
+                //     accessible: true,
+                //     parent: undefined
+                // };
+                // nodeMap = propagateShortcut({
+                //     nodeMap,
+                //     start: {
+                //         x: col,
+                //         y: row
+                //     }
+                // });
             }
         }
     }
@@ -936,21 +1064,14 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
     }
     let { hyperspace, doorSites } = designRoomInHyperspace();
     // the initial room is put smack in the center
-    let fillX, fillY;
-    let foundFillPoint = false;
-    for (fillY = 0; fillY < HEIGHT && !foundFillPoint; fillY++) {
-        for (fillX = 0; fillX < WIDTH && !foundFillPoint; fillX++) {
-            if (hyperspace[fillY][fillX]) {
-                foundFillPoint = true;
-            }
-        }
-    }
     dungeon = transferRoomToDungeon(dungeon, hyperspace, 0, 0);
     for (let i = 0; i < nRooms; i++) {
         dungeon = accreteRoom(dungeon);
     }
-    dungeon = addLoops(dungeon);
-    dungeon = addLakes(dungeon);
+    if (!DEBUG_FLAGS.SHOW_ACCRETION) {
+        dungeon = addLoops(dungeon);
+        dungeon = addLakes(dungeon);
+    }
     return {
         rooms,
         dungeon: annotateCells(dungeon),
@@ -967,5 +1088,10 @@ module.exports = {
     placeRoomInDungeon,
     gridFromDimensions,
     annotateCells,
-    coordinatesAreInMap
+    coordinatesAreInMap,
+    transferRoomToDungeon,
+    runCAGeneration,
+    randomRange,
+    drawContinuousShapeOnGrid,
+    findLargestBlob
 };
