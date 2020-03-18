@@ -363,7 +363,6 @@ const reducer = (state = initialState, action) => {
                     return cell > 1 ? CELL_TYPES.FLOOR : 0;
                 }
             );
-            debugger;
             hyperspace = drawContinuousShapeOnGrid(
                 blob,
                 HEIGHT / 2 - Math.floor(state.CACells.length / 2),
@@ -373,7 +372,6 @@ const reducer = (state = initialState, action) => {
                     return cell === 1 ? CELL_TYPES.LAKE : 0;
                 }
             );
-            debugger;
             return [
                 {
                     ...state,
@@ -488,13 +486,13 @@ const reducer = (state = initialState, action) => {
                     }
                 });
                 let path;
-                // nodeMap.forEach((row, rowIndex) =>
-                //     row.forEach((node, colIndex) => {
-                //         if (node.distance < Infinity)
-                //             annotatedDungeon[rowIndex][colIndex].letter =
-                //                 node.distance;
-                //     })
-                // );
+                nodeMap.forEach((row, rowIndex) =>
+                    row.forEach((node, colIndex) => {
+                        if (node.distance < Infinity)
+                            annotatedDungeon[rowIndex][colIndex].letter =
+                                node.distance;
+                    })
+                );
                 if (distance !== Infinity) {
                     path = traceShortestPath(
                         nodeMap,

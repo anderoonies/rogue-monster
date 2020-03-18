@@ -583,7 +583,6 @@ const designRoomInHyperspace = () => {
             room = makeCARoom();
             break;
         case ROOM_TYPES.CIRCLE:
-            debugger;
             room = makeCircularRoom();
             break;
         case ROOM_TYPES.SYMMETRICAL_CROSS:
@@ -1068,10 +1067,9 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
     for (let i = 0; i < nRooms; i++) {
         dungeon = accreteRoom(dungeon);
     }
-    if (!DEBUG_FLAGS.SHOW_ACCRETION) {
-        dungeon = addLoops(dungeon);
-        dungeon = addLakes(dungeon);
-    }
+    debugger;
+    dungeon = addLoops(dungeon);
+    dungeon = addLakes(dungeon);
     return {
         rooms,
         dungeon: annotateCells(dungeon),

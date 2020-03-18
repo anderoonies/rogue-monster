@@ -18,7 +18,8 @@ const dungeonToNodeMap = ({ dungeon, inaccessible }) => {
                 x: colIndex,
                 y: rowIndex,
                 visited: false,
-                distance: Infinity,
+                fDistance: Infinity,
+                gDistance: Infinity,
                 accessible: !inaccessible(dungeon[rowIndex][colIndex]),
                 parent: undefined
             };
@@ -48,34 +49,8 @@ const getNeighbors = ({ row, col, nodeMap }, revisit = false) => {
     return neighbors;
 };
 
-export const propagateShortcut = ({ nodeMap, start }) => {
-    // this algorithm doesnt work!
-    let currentNode = nodeMap[start.y][start.x];
-    currentNode.distance = 0;
-    currentNode.visited = true;
-    let neighbors;
-    let distance;
-    let unvisitedNodes = [currentNode];
-
-    console.log(`propagating shortcut from ${start}`);
-    debugger;
-    while (unvisitedNodes.length) {
-        currentNode = unvisitedNodes.pop();
-        for (let neighbor of getNeighbors(
-            { row: currentNode.y, col: currentNode.x, nodeMap },
-            true
-        )) {
-            // 3. for current node, consider all unvisited neighbors and calc tentative distance. mark distance of all nodes to the min of previous or just-calculated
-            distance = 1 + currentNode.distance;
-            if (distance < neighbor.distance) {
-                neighbor.distance = distance;
-                neighbor.parent = currentNode;
-                console.log(`i reduced the distance to ${neighbor}!`);
-                unvisitedNodes.push(neighbor);
-            }
-        }
-    }
-    return nodeMap;
+const heuristic = (node, target) => {
+    return Math.abs(node.x - target.x) + Math.abs(node.y - target.y);
 };
 
 export const pathDistance = ({
@@ -85,72 +60,67 @@ export const pathDistance = ({
     inaccessible,
     reuseNodeMap
 }) => {
+
+    debugger;
     // 1. mark all nodes as visited, create a set of unvisited nodes
-    if (reuseNodeMap !== undefined) {
-        return {
-            distance:
-                reuseNodeMap[end.y][end.x].distance -
-                reuseNodeMap[start.y][start.x].distance,
-            nodeMap: reuseNodeMap
-        };
-    }
     let nodeMap = dungeonToNodeMap({ dungeon, inaccessible });
     let currentNode = nodeMap[start.y][start.x];
-    currentNode.distance = 0;
-    currentNode.visited = true;
-    let neighbors;
-    let distance;
     let destinationNode = nodeMap[end.y][end.x];
     let candidateNextNode = destinationNode;
-    let unvisitedNodes = nodeMap.flat().reduce((acc, node) => {
-        if (node.accessible) {
-            acc[`${node.y},${node.x}`] = node;
-        }
-        return acc;
-    }, {});
+    currentNode.gDistance = 0;
+    currentNode.fDistance = 0 + heuristic(currentNode, end);
+    currentNode.visited = true;
+    let unvisitedNodes = {
+        [`${start.y},${start.x}`]: start
+    };
 
-    while (true) {
+    let neighbors;
+    let tentativeGDistance;
+    let nodeKey;
+
+    while (Object.keys(unvisitedNodes).length) {
+        if (
+            currentNode === destinationNode ||
+            currentNode.distance === Infinity
+        ) {
+            return { distance: currentNode.gDistance, nodeMap };
+        }
+
+        currentNode.visited = true;
+        delete unvisitedNodes[`${currentNode.y},${currentNode.x}`];
+
         neighbors = getNeighbors({
             row: currentNode.y,
             col: currentNode.x,
             nodeMap
         });
         for (let neighbor of neighbors) {
-            // 3. for current node, consider all unvisited neighbors and calc tentative distance. mark distance of all nodes to the min of previous or just-calculated
-            distance = 1 + currentNode.distance;
-            if (distance < neighbor.distance) {
-                neighbor.distance = distance;
+            // WE'RE A-STAR NOW!!
+            tentativeGDistance = currentNode.gDistance + 1;
+            if (tentativeGDistance < neighbor.gDistance) {
+                neighbor.gDistance = tentativeGDistance;
+                neighbor.fDistance =
+                    tentativeGDistance + heuristic(neighbor, destinationNode);
                 neighbor.parent = currentNode;
+                nodeKey = `${neighbor.y},${neighbor.x}`;
+                if (!(nodeKey in unvisitedNodes)) {
+                    unvisitedNodes[nodeKey] = neighbor;
+                }
             }
         }
-        // 4. when all unvisited neighbors of current node visited, mark current node as visited and remove it from unvisited set.
-        currentNode.visited = true;
-        delete unvisitedNodes[`${currentNode.y},${currentNode.x}`];
 
-        // 5. if the destination node has been marked as visited...
-        if (currentNode === destinationNode) {
-            return { distance: currentNode.distance, nodeMap };
-        }
-        candidateNextNode = Object.values(unvisitedNodes)
+        currentNode = Object.values(unvisitedNodes)
             .sort((a, b) => {
-                if (a.distance < b.distance) {
+                if (a.fDistance < b.fDistance) {
                     return -1;
-                } else if (b.distance < a.distance) {
+                } else if (b.fDistance < a.fDistance) {
                     return 1;
                 }
                 return 0;
             })
             .shift();
-        // 5...or the minimum tentative distance among nodes in the unvisited set is inf (unreachable), alg has finished
-        if (
-            candidateNextNode === undefined ||
-            candidateNextNode.distance === Infinity
-        ) {
-            return { distance: destinationNode.distance, nodeMap };
-        }
-
-        currentNode = candidateNextNode;
     }
+    return { distance: Infinity, nodeMap: "ya baby" };
 };
 
 export const traceShortestPath = (annotatedNodeMap, start, end) => {
@@ -163,3 +133,34 @@ export const traceShortestPath = (annotatedNodeMap, start, end) => {
     }
     return path;
 };
+
+// export const propagateShortcut = ({ nodeMap, start }) => {
+//     // this algorithm doesnt work! i thought it would!
+//     let currentNode = nodeMap[start.y][start.x];
+//     currentNode.gDistance = 0;
+//     currentNode.fDistance = heuristic(currentNode, destinationNode);
+//     currentNode.visited = true;
+//     let neighbors;
+//     let distance;
+//     let unvisitedNodes = [currentNode];
+//
+//     console.log(`propagating shortcut from ${start}`);
+//     debugger;
+//     while (unvisitedNodes.length) {
+//         currentNode = unvisitedNodes.pop();
+//         for (let neighbor of getNeighbors(
+//             { row: currentNode.y, col: currentNode.x, nodeMap },
+//             true
+//         )) {
+//             // 3. for current node, consider all unvisited neighbors and calc tentative distance. mark distance of all nodes to the min of previous or just-calculated
+//             distance = currentNode.distance + heuristic(neighbor);
+//             if (distance < neighbor.distance) {
+//                 neighbor.distance = currentNode.distance;
+//                 neighbor.parent = currentNode;
+//                 console.log(`i reduced the distance to ${neighbor}!`);
+//                 unvisitedNodes.push(neighbor);
+//             }
+//         }
+//     }
+//     return nodeMap;
+// };
