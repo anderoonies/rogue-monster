@@ -16,7 +16,8 @@ const letters = {
 export default function Cell({
     type,
     letter,
-    color,
+    fgColor,
+    bgColor,
     debugLetter,
     light,
     memory,
@@ -25,14 +26,13 @@ export default function Cell({
     debug,
     importantRooms
 }) {
-    color = color || COLORS[type];
-    // let bgColor = shadeHexColor(color, light);
-    let bgColor = color;
-    if (memory && light === DARKNESS_MAX) {
-        type = memory.type;
-        letter = memory.type;
-        bgColor = shadeHexColor(color, 30);
-    }
+    bgColor = bgColor || COLORS[type].bg;
+    fgColor = fgColor || COLORS[type].fg;
+    // if (memory && light === DARKNESS_MAX) {
+    //     type = memory.type;
+    //     letter = memory.type;
+    //     bgColor = shadeHexColor(color, 30);
+    // }
     return (
         <div
             onContextMenu={e => {
@@ -43,7 +43,7 @@ export default function Cell({
             key={`row${row}col${col}`}
             row={row}
             col={col}
-            style={{ backgroundColor: bgColor, cursor: "crosshair" }}
+            style={{ backgroundColor: bgColor, color: fgColor, cursor: "crosshair" }}
             light={light}
             type={type}
         >

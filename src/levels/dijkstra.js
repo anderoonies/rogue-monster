@@ -60,8 +60,6 @@ export const pathDistance = ({
     inaccessible,
     reuseNodeMap
 }) => {
-
-    debugger;
     // 1. mark all nodes as visited, create a set of unvisited nodes
     let nodeMap = dungeonToNodeMap({ dungeon, inaccessible });
     let currentNode = nodeMap[start.y][start.x];
