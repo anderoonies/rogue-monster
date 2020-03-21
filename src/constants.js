@@ -22,15 +22,20 @@ export const HEIGHT = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 50;
 
 // colors
 export const COLORS = {
-    floor: "#bfbfbf",
-    debug: "#1fa90f",
-    wall: "#777463",
-    player: "#299c32",
-    door: "#299c32",
-    rock: "#777463",
-    hallway: "#bfbfbf",
-    lake: "#5e5eca",
-    shallow_water: "#acade8"
+    floor: { bg: "#23232b", fg: "#bfbfbf" },
+    debug: { bg: "#1fa90f", fg: "black" },
+    wall: { bg: "#f5e3cd", fg: "black" },
+    player: { bg: "#299c32", fg: "black" },
+    door: { bg: "#795548", fg: "black" },
+    rock: { bg: "black", fg: "black" },
+    hallway: { bg: "#bfbfbf", fg: "black" },
+    lake: { bg: "#5e5eca", fg: "black" },
+    shallow_water: { bg: "#acade8", fg: "black" },
+    grass: { bg: "#23232b", fg: "#8bc34a" },
+    dead_grass: { bg: "#23232b", fg: "#8c542b" },
+    dead_foliage: { bg: "#23232b", fg: "#8c542b" },
+    foliage: { bg: "#23232b", fg: "#8bc34a" },
+    rubble: { bg: "#23232b", fg: "black" }
 };
 
 // rooms
@@ -51,6 +56,7 @@ export const ROOM_TYPES = {
 
 export const CELL_TYPES = {
     DEBUG: -10,
+    WALL: 17,
     ROCK: 0,
     FLOOR: 1,
     DOOR: 2,
@@ -58,7 +64,16 @@ export const CELL_TYPES = {
     EXIT_EAST: 4,
     EXIT_SOUTH: 5,
     EXIT_WEST: 6,
-    LAKE: 7
+    LAKE: 7,
+    GRANITE: 8,
+    CRYSTAL_WALL: 9,
+    LUMINESCENT_FUNGUS: 10,
+    GRASS: 11,
+    DEAD_GRASS: 12,
+    SHALLOW_WATER: 13,
+    DEAD_FOLIAGE: 14,
+    FOLIAGE: 15,
+    RUBBLE: 16
 };
 
 export const EXIT_TYPE = CELL_TYPE => {
@@ -70,10 +85,18 @@ export const EXIT_TYPE = CELL_TYPE => {
 export const PASSIBLE_TYPES = [
     CELL_TYPES.FLOOR,
     CELL_TYPES.DOOR,
-    CELL_TYPES.SHALLOW_WATER
+    CELL_TYPES.SHALLOW_WATER,
+    CELL_TYPES.DEAD_GRASS,
+    CELL_TYPES.GRASS
 ];
 
-export const IMPASSIBLE_TYPES = [CELL_TYPES.ROCK, CELL_TYPES.LAKE];
+export const IMPASSIBLE_TYPES = [
+    CELL_TYPES.ROCK,
+    CELL_TYPES.WALL,
+    CELL_TYPES.LAKE,
+    CELL_TYPES.FOLIAGE,
+    CELL_TYPES.DEAD_FOLIAGE
+];
 
 export const IMPASSIBLE = cell => {
     return IMPASSIBLE_TYPES.indexOf(cell) > -1;
@@ -89,7 +112,11 @@ export const DIRECTIONS = {
     NORTH: 0,
     EAST: 1,
     SOUTH: 2,
-    WEST: 3
+    WEST: 3,
+    NE: 4,
+    SE: 5,
+    SW: 6,
+    NW: 7
 };
 
 export const DIR_TO_TRANSFORM = {
@@ -108,6 +135,26 @@ export const DIR_TO_TRANSFORM = {
     [DIRECTIONS.WEST]: {
         x: -1,
         y: 0
+    },
+    [DIRECTIONS.WEST]: {
+        x: -1,
+        y: 0
+    },
+    [DIRECTIONS.NE]: {
+        x: 1,
+        y: -1
+    },
+    [DIRECTIONS.SE]: {
+        x: 1,
+        y: 1
+    },
+    [DIRECTIONS.SW]: {
+        x: -1,
+        y: 1
+    },
+    [DIRECTIONS.NW]: {
+        x: -1,
+        y: -1
     }
 };
 
@@ -121,17 +168,42 @@ export const CELLS = {
     [CELL_TYPES.FLOOR]: {
         type: "floor",
         color: COLORS.floor,
-        letter: ","
+        letter: ".",
+        priority: 9,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: false,
+            OBSTRUCTS_VISION: false
+        }
+    },
+    [CELL_TYPES.WALL]: {
+        type: "wall",
+        color: COLORS.wall,
+        letter: "#",
+        priority: 10,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: true,
+            OBSTRUCTS_VISION: true
+        }
     },
     [CELL_TYPES.ROCK]: {
         type: "rock",
         color: COLORS.rock,
-        letter: "#"
+        letter: "#",
+        priority: 15,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: true,
+            OBSTRUCTS_VISION: true
+        }
     },
     [CELL_TYPES.DOOR]: {
         type: "door",
         color: COLORS.door,
-        letter: "d"
+        letter: "+",
+        priority: 16,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: false,
+            OBSTRUCTS_VISION: true
+        }
     },
     [CELL_TYPES.EXIT_NORTH]: {
         type: "door",
@@ -156,12 +228,91 @@ export const CELLS = {
     [CELL_TYPES.LAKE]: {
         type: "lake",
         color: COLORS.lake,
-        letter: "~"
+        letter: "~",
+        priority: 20,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: true,
+            OBSTRUCTS_VISION: false
+        }
     },
     [CELL_TYPES.SHALLOW_WATER]: {
         type: "shallow_water",
         color: COLORS.shallow_water,
-        letter: "`"
+        letter: "~",
+        priority: 17,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: false,
+            OBSTRUCTS_VISION: false
+        }
+    },
+    [CELL_TYPES.GRANITE]: {
+        type: "granite",
+        color: COLORS.granite,
+        letter: "g",
+        flags: {
+            OBSTRUCTS_PASSIBILITY: true,
+            OBSTRUCTS_VISION: true
+        }
+    },
+    [CELL_TYPES.CRYSTAL_WALL]: {
+        type: "crystal_wall",
+        color: COLORS.crystal_wall,
+        letter: "c"
+    },
+    [CELL_TYPES.LUMINESCENT_FUNGUS]: {
+        type: "luminescent_fungus",
+        color: COLORS.luminescent_fungus,
+        letter: "f"
+    },
+    [CELL_TYPES.GRASS]: {
+        type: "grass",
+        color: COLORS.grass,
+        letter: '"',
+        priority: 10,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: false,
+            OBSTRUCTS_VISION: false
+        }
+    },
+    [CELL_TYPES.DEAD_GRASS]: {
+        type: "dead_grass",
+        color: COLORS.dead_grass,
+        letter: '"',
+        priority: 10,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: false,
+            OBSTRUCTS_VISION: false
+        }
+    },
+    [CELL_TYPES.DEAD_FOLIAGE]: {
+        type: "dead_foliage",
+        color: COLORS.dead_grass,
+        letter: String.fromCharCode("0x03B3"),
+        priority: 12,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: false,
+            OBSTRUCTS_VISION: false
+        }
+    },
+    [CELL_TYPES.FOLIAGE]: {
+        type: "foliage",
+        color: COLORS.grass,
+        letter: String.fromCharCode("0x03B3"),
+        priority: 12,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: true,
+            OBSTRUCTS_VISION: false
+        }
+    },
+    [CELL_TYPES.RUBBLE]: {
+        type: "rubble",
+        color: COLORS.grass,
+        letter: ",",
+        priority: 11,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: false,
+            OBSTRUCTS_VISION: false
+        }
     }
 };
 
@@ -249,3 +400,221 @@ export const DIRECTION_TO_DOOR_LETTER = {
     [DIRECTIONS.SOUTH]: "V",
     [DIRECTIONS.WEST]: "<"
 };
+
+const FEATURES = {
+    DF_GRANITE_COLUMN: 0,
+    DF_CRYSTAL_WALL: 1,
+    DF_LUMINESCENT_FUNGUS: 2,
+    DF_GRASS: 3,
+    DF_DEAD_GRASS: 4,
+    DF_DEAD_FOLIAGE: 5,
+    DF_FOLIAGE: 6
+};
+
+export const DUNGEON_FEATURE_CATALOG = {
+    [FEATURES.DF_GRANITE_COLUMN]: {
+        tile: CELL_TYPES.GRANITE,
+        start: 80,
+        decr: 70
+    },
+    [FEATURES.DF_CRYSTAL_WALL]: {
+        tile: CELL_TYPES.CRYSTAL_WALL,
+        start: 200,
+        decr: 50
+    },
+    [FEATURES.DF_LUMINESCENT_FUNGUS]: {
+        tile: CELL_TYPES.DF_LUMINESCENT_FUNGUS,
+        start: 60,
+        decr: 8
+    },
+    [FEATURES.DF_GRASS]: {
+        tile: CELL_TYPES.GRASS,
+        start: 75,
+        decr: 10,
+        subsequentFeature: FEATURES.DF_FOLIAGE
+    },
+    [FEATURES.DF_DEAD_GRASS]: {
+        tile: CELL_TYPES.DEAD_GRASS,
+        start: 75,
+        decr: 10,
+        propagationTerrain: CELL_TYPES.FLOOR,
+        subsequentFeature: FEATURES.DF_DEAD_FOLIAGE
+    },
+    [FEATURES.DF_DEAD_FOLIAGE]: {
+        tile: CELL_TYPES.DEAD_FOLIAGE,
+        start: 50,
+        decr: 30
+    },
+    [FEATURES.DF_FOLIAGE]: {
+        tile: CELL_TYPES.FOLIAGE,
+        start: 50,
+        decr: 30
+    },
+    [FEATURES.DF_RUBBLE]: {
+        tile: CELL_TYPES.RUBBLE,
+        start: 45,
+        decr: 23
+    }
+};
+
+// terrains
+export const AUTO_GENERATOR_CATALOG = [
+    //	 terrain layer DF Machine reqDungeon reqLiquid  >Depth <Depth freq minIncp minSlope maxNumber
+    // {
+    //     terrain: 0,
+    //     layer: 0,
+    //     DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_GRANITE_COLUMN],
+    //     machine: 0,
+    //     reqDungeon: CELL_TYPES.FLOOR,
+    //     reqLiquid: -1,
+    //     minDepth: 0,
+    //     maxDepth: 0,
+    //     frequency: 60,
+    //     minIntercept: 100,
+    //     minSlop: 0,
+    //     maxNumber: 4
+    // },
+    // {
+    //     terrain: 0,
+    //     layer: 0,
+    //     DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_CRYSTAL_WALL],
+    //     machine: 0,
+    //     reqDungeon: CELL_TYPES.ROCK,
+    //     reqLiquid: -1,
+    //     minDepth: 14,
+    //     maxDepth: 0,
+    //     frequency: 15,
+    //     minIntercept: -325,
+    //     minSlop: 25,
+    //     maxNumber: 5
+    // },
+    // {
+    //     terrain: 0,
+    //     layer: 0,
+    //     DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_LUMINESCENT_FUNGUS],
+    //     machine: 0,
+    //     reqDungeon: CELL_TYPES.FLOOR,
+    //     reqLiquid: -1,
+    //     minDepth: 0,
+    //     maxDepth: 0,
+    //     frequency: 15,
+    //     minIntercept: -300,
+    //     minSlop: 70,
+    //     maxNumber: 14
+    // },
+    {
+        terrain: 0,
+        layer: 0,
+        DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_GRASS],
+        machine: 0,
+        reqDungeon: CELL_TYPES.FLOOR,
+        reqLiquid: -1,
+        minDepth: 0,
+        maxDepth: 10,
+        frequency: 0,
+        minIntercept: 1000,
+        minSlope: -80,
+        maxNumber: 10
+    },
+    {
+        terrain: 0,
+        layer: 0,
+        DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_DEAD_GRASS],
+        machine: 0,
+        reqDungeon: CELL_TYPES.FLOOR,
+        reqLiquid: -1,
+        minDepth: 0,
+        maxDepth: 9,
+        frequency: 0,
+        minIntercept: 500,
+        minSlope: 100,
+        maxNumber: 10
+    },
+    // [0, 0, DF_DEAD_GRASS, 0, FLOOR, NOTHING, 9, 14, 0, 1200, -80, 10],
+    // [0, 0, DF_BONES, 0, FLOOR, NOTHING, 12, DEEPEST_LEVEL - 1, 30, 0, 0, 4],
+    {
+        terrain: 0,
+        layer: 0,
+        DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_RUBBLE],
+        machine: 0,
+        reqDungeon: CELL_TYPES.FLOOR,
+        reqLiquid: -1,
+        minDepth: 0,
+        maxDepth: 9,
+        frequency: 30,
+        minIntercept: 0,
+        minSlope: 0,
+        maxNumber: 4
+    }
+    // [0, 0, DF_FOLIAGE, 0, FLOOR, NOTHING, 0, 8, 15, 1000, -333, 10],
+    // [
+    //     0,
+    //     0,
+    //     DF_FUNGUS_FOREST,
+    //     0,
+    //     FLOOR,
+    //     NOTHING,
+    //     13,
+    //     DEEPEST_LEVEL,
+    //     30,
+    //     -600,
+    //     50,
+    //     12
+    // ],
+    // [
+    //     0,
+    //     0,
+    //     DF_BUILD_ALGAE_WELL,
+    //     0,
+    //     FLOOR,
+    //     DEEP_WATER,
+    //     10,
+    //     DEEPEST_LEVEL,
+    //     50,
+    //     0,
+    //     0,
+    //     2
+    // ],
+    // [
+    //     STATUE_INERT,
+    //     DUNGEON,
+    //     0,
+    //     0,
+    //     WALL,
+    //     NOTHING,
+    //     6,
+    //     DEEPEST_LEVEL - 1,
+    //     5,
+    //     -100,
+    //     35,
+    //     3
+    // ],
+    // [
+    //     STATUE_INERT,
+    //     DUNGEON,
+    //     0,
+    //     0,
+    //     FLOOR,
+    //     NOTHING,
+    //     10,
+    //     DEEPEST_LEVEL - 1,
+    //     50,
+    //     0,
+    //     0,
+    //     3
+    // ],
+    // [
+    //     TORCH_WALL,
+    //     DUNGEON,
+    //     0,
+    //     0,
+    //     WALL,
+    //     NOTHING,
+    //     6,
+    //     DEEPEST_LEVEL - 1,
+    //     5,
+    //     -200,
+    //     70,
+    //     12
+    // ]
+];

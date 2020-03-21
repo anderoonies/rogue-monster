@@ -29,6 +29,9 @@ const HEIGHT = require("../constants").HEIGHT;
 const IMPASSIBLE = require("../constants").IMPASSIBLE;
 const PASSIBLE = require("../constants").PASSIBLE;
 
+const AUTO_GENERATOR_CATALOG = require("../constants").AUTO_GENERATOR_CATALOG;
+const DUNGEON_FEATURE_CATALOG = require("../constants").DUNGEON_FEATURE_CATALOG;
+
 const {
     coordinatesAreInMap,
     clamp,
@@ -169,7 +172,7 @@ const makeSymmetricalCrossRoom = () => {
 const makeCircularRoom = () => {
     let radius;
     radius = randomRange(2, 6);
-    const grid = gridFromDimensions(radius**2, radius**2, 0);
+    const grid = gridFromDimensions(radius ** 2, radius ** 2, 0);
     const center = [radius, radius];
     let roomGrid = grid.map((row, rowIndex) => {
         return row.map((cell, colIndex) => {
@@ -835,57 +838,6 @@ const lakeDisruptsPassability = ({ dungeon, lake, y, x }) => {
         }
     }
     return false;
-
-    // // generate a perimeter of the lake:
-    // // all the non-lake cells to the left/top/right/bottom of a lake cell.
-    // // perimeter cells are adjusted to the dungeon
-    // let perimeterCells = new Set();
-    // for (let row = 0; row < lake.length; row++) {
-    //     for (let col = 0; col < lake[0].length; col++) {
-    //         if (lake[row][col] === 1) {
-    //             for (let direction = 0; direction < 4; direction++) {
-    //                 transform = DIR_TO_TRANSFORM[direction];
-    //                 adjacentRow = y + row + transform.y;
-    //                 adjacentCol = x + col + transform.x;
-    //                 adjacentCell = dungeonWithLake[adjacentRow][adjacentCol];
-    //                 if (adjacentCell === 1 || adjacentCell === 2) {
-    //                     perimeterCells.add([adjacentRow, adjacentCol]);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    // perimeterCells = Array.from(perimeterCells);
-    // // now, for each cell in the perimeter, perform a walk.
-    // let walk;
-    // let startCell;
-    // let endCell;
-    // // i from 0 to n - 1
-    // for (let i = 0; i < perimeterCells.length - 1; i++) {
-    //     for (let j = i; j < perimeterCells.length; j++) {
-    //         startCell = perimeterCells[i];
-    //         endCell = perimeterCells[i + 1];
-    //         walk = pathDistance({
-    //             start: {
-    //                 y: startCell[0],
-    //                 x: startCell[1]
-    //             },
-    //             end: {
-    //                 y: endCell[0],
-    //                 x: endCell[1]
-    //             },
-    //             dungeon: dungeonWithLake,
-    //             inaccessible: cell => {
-    //                 return cell === CELL_TYPES.ROCK || cell === CELL_TYPES.LAKE;
-    //             }
-    //         });
-    //         if (walk.distance === Infinity) {
-    //             return true;
-    //         } else {
-    //         }
-    //     }
-    // }
-    // return false;
 };
 
 const createWreath = ({
@@ -1025,26 +977,260 @@ const addLoops = dungeon => {
                 end: { x: behindX, y: behindY },
                 dungeon: dungeon,
                 inaccessible: IMPASSIBLE
-                // reuseNodeMap: nodeMap
             }));
 
             if (distance > 20) {
                 dungeon[row][col] = CELL_TYPES.DOOR;
-                // nodeMap[row][col] = {
-                //     x: col,
-                //     y: row,
-                //     visited: false,
-                //     distance: 0,
-                //     accessible: true,
-                //     parent: undefined
-                // };
-                // nodeMap = propagateShortcut({
-                //     nodeMap,
-                //     start: {
-                //         x: col,
-                //         y: row
-                //     }
-                // });
+            }
+        }
+    }
+    return dungeon;
+};
+
+const cellHasTerrainFlag = (row, col) => {
+    // todo: flag mask
+    return true;
+};
+
+const randomMatchingLocation = ({ dungeon, dungeonType, liquidType }) => {
+    let failSaveCount = 0;
+    let row, col;
+    let randomizedCoordinates = Array.from(Array(WIDTH * HEIGHT).keys());
+    randomizedCoordinates = shuffleList(randomizedCoordinates);
+    let i = 0;
+    do {
+        i++;
+        row = randomizedCoordinates[i] % HEIGHT;
+        col = Math.floor(randomizedCoordinates[i] / HEIGHT);
+    } while (
+        i < 500 &&
+        (dungeonType > -1 && dungeon[row][col] !== dungeonType) &&
+        (liquidType > -1 && dungeon[row][col] !== liquidType) &&
+        cellHasTerrainFlag(row, col)
+    );
+    if (i >= 500) {
+        return false;
+    }
+    return { row, col };
+};
+
+const fillSpawnMap = ({ hyperspace, spawnMap }) => {
+    let fillTile;
+    for (let row = 0; row < HEIGHT; row++) {
+        for (let col = 0; col < WIDTH; col++) {
+            if (spawnMap[row][col]) {
+                fillTile = CELLS[spawnMap[row][col]];
+                if (CELLS[hyperspace[row][col]].priority < fillTile.priority) {
+                    hyperspace[row][col] = spawnMap[row][col];
+                }
+            }
+        }
+    }
+    return hyperspace;
+};
+
+const spawnMapDF = ({
+    row,
+    col,
+    hyperspace,
+    propagationTerrain,
+    requirePropagationTerrain,
+    startProbability,
+    probabilitySlope,
+    spawnMap,
+    tile
+}) => {
+    let madeChange = true;
+    let t = 1;
+    let probability = startProbability;
+    spawnMap[row][col] = 1;
+
+    let transform;
+    let i2, j2;
+    let successful = false;
+    while (madeChange && startProbability > 0) {
+        madeChange = false;
+        t++;
+        for (let i = 0; i < HEIGHT; i++) {
+            for (let j = 0; j < WIDTH; j++) {
+                if (spawnMap[i][j] === t - 1) {
+                    for (let direction = 0; direction < 4; direction++) {
+                        transform = DIR_TO_TRANSFORM[direction];
+                        i2 = i + transform.y;
+                        j2 = j + transform.x;
+                        if (
+                            coordinatesAreInMap(i2, j2) &&
+                            (!requirePropagationTerrain ||
+                                (propagationTerrain > 0 &&
+                                    hyperspace[i2][j2] ===
+                                        propagationTerrain)) &&
+                            randomRange(0, 100) < probability
+                        ) {
+                            spawnMap[i2][j2] = t;
+                            madeChange = true;
+                            successful = true;
+                        }
+                    }
+                }
+            }
+        }
+        probability -= probabilitySlope;
+        if (t > 100) {
+            for (let i = 0; i < HEIGHT; i++) {
+                for (let j = 0; j < WIDTH; j++) {
+                    if (spawnMap[i][j] == t) {
+                        spawnMap[i][j] = 2;
+                    } else if (spawnMap[i][j] > 0) {
+                        spawnMap[i][j] = 1;
+                    }
+                }
+            }
+        }
+    }
+    spawnMap = spawnMap.map(row => {
+        return row.map(cell => {
+            return cell > 0 ? tile : 0;
+        });
+    });
+    return { spawnMap, successful };
+};
+
+const spawnDungeonFeature = ({ row, col, hyperspace, feature }) => {
+    let spawnMap = gridFromDimensions(HEIGHT, WIDTH, 0);
+    let subsequentSpawnMap;
+    let subsequentFeature;
+    let successful;
+    ({ spawnMap, successful } = spawnMapDF({
+        row,
+        col,
+        hyperspace,
+        propagationTerrain: feature.propagationTerrain,
+        requirePropagationTerrain: feature.propagationTerrain !== undefined,
+        startProbability: feature.start,
+        probabilitySlope: feature.decr,
+        tile: feature.tile,
+        spawnMap
+    }));
+    if (successful && feature.subsequentFeature) {
+        subsequentFeature = DUNGEON_FEATURE_CATALOG[feature.subsequentFeature];
+        subsequentSpawnMap = spawnDungeonFeature({
+            row,
+            col,
+            hyperspace,
+            feature: subsequentFeature
+        });
+        debugger;
+        // perform a pseudo-fill onto the spawnMap here to get the higher priority feature on top
+        // (room, topOffset, leftOffset, grid, map)
+        spawnMap = drawContinuousShapeOnGrid(
+            subsequentSpawnMap,
+            0,
+            0,
+            spawnMap
+        );
+    }
+    return spawnMap;
+};
+
+const runAutogenerators = dungeon => {
+    let autogenerator;
+    let count;
+    let depth = 0;
+    let hyperspace = dungeon.map(row => {
+        return row.slice();
+    });
+    let spawnMap;
+    let autogeneratorRow, autogeneratorCol, autogeneratorLocation;
+    for (let AG = 0; AG < AUTO_GENERATOR_CATALOG.length; AG++) {
+        autogenerator = AUTO_GENERATOR_CATALOG[AG];
+        count = Math.min(
+            (autogenerator.minIntercept + depth * autogenerator.minSlope) / 100,
+            autogenerator.maxNumber
+        );
+        while (
+            randomRange(0, 100) < autogenerator.frequency &&
+            count < autogenerator.maxNumber
+        ) {
+            count++;
+        }
+
+        for (let i = 0; i < count; i++) {
+            autogeneratorLocation = randomMatchingLocation({
+                dungeon: dungeon,
+                dungeonType: autogenerator.reqDungeon,
+                liquidType: autogenerator.reqLiquid
+            });
+            if (autogeneratorLocation) {
+                autogeneratorRow = autogeneratorLocation.row;
+                autogeneratorCol = autogeneratorLocation.col;
+                spawnMap = spawnDungeonFeature({
+                    row: autogeneratorRow,
+                    col: autogeneratorCol,
+                    hyperspace,
+                    feature: autogenerator.DF
+                });
+                hyperspace = fillSpawnMap({
+                    hyperspace,
+                    spawnMap
+                });
+            }
+        }
+    }
+    return hyperspace;
+};
+
+const cellObstructsVision = (row, col, dungeon) => {
+    return CELLS[dungeon[row][col]].flags.OBSTRUCTS_VISION;
+};
+
+const cellObstructsPassibility = (row, col, dungeon) => {
+    return CELLS[dungeon[row][col]].flags.OBSTRUCTS_PASSIBILITY;
+};
+
+const finishWalls = (dungeon, diagonals) => {
+    let foundExposure = false;
+    let transform;
+    let x1, y1;
+    for (let row = 0; row < HEIGHT; row++) {
+        for (let col = 0; col < WIDTH; col++) {
+            if (dungeon[row][col] === CELL_TYPES.ROCK) {
+                foundExposure = false;
+                for (
+                    let direction = 0;
+                    direction < (diagonals ? 8 :4) && !foundExposure;
+                    direction++
+                ) {
+                    y1 = row + DIR_TO_TRANSFORM[direction].y;
+                    x1 = col + DIR_TO_TRANSFORM[direction].x;
+                    if (
+                        coordinatesAreInMap(y1, x1) &&
+                        (!cellObstructsVision(y1, x1, dungeon) ||
+                            !cellObstructsPassibility(y1, x1, dungeon))
+                    ) {
+                        dungeon[row][col] = CELL_TYPES.WALL;
+                        foundExposure = true;
+                    }
+                }
+            } else if (dungeon[row][col] === CELL_TYPES.WALL) {
+                foundExposure = false;
+                for (
+                    let direction = 0;
+                    (direction < 4) & !foundExposure;
+                    direction++
+                ) {
+                    y1 = row + DIR_TO_TRANSFORM[direction].y;
+                    x1 = col + DIR_TO_TRANSFORM[direction].x;
+                    if (
+                        coordinatesAreInMap(y1, x1) &&
+                        (!cellObstructsVision(y1, x1, dungeon) ||
+                            !cellObstructsPassibility(y1, x1, dungeon))
+                    ) {
+                        foundExposure = true;
+                    }
+                }
+                if (foundExposure === false) {
+                    dungeon[row][col] = CELL_TYPES.ROCK;
+                }
             }
         }
     }
@@ -1067,9 +1253,10 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
     for (let i = 0; i < nRooms; i++) {
         dungeon = accreteRoom(dungeon);
     }
-    debugger;
     dungeon = addLoops(dungeon);
     dungeon = addLakes(dungeon);
+    dungeon = runAutogenerators(dungeon);
+    dungeon = finishWalls(dungeon, true);
     return {
         rooms,
         dungeon: annotateCells(dungeon),
