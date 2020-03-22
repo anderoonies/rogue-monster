@@ -108,6 +108,7 @@ const Renderer = ({ state, dispatch }) => {
                             {row.map((cell, colIndex) => {
                                 return Cell({
                                     ...cell,
+                                    color: state.colorizedDungeon[rowIndex][colIndex],
                                     row: rowIndex,
                                     col: colIndex,
                                     debug: true

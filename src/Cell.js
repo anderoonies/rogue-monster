@@ -16,8 +16,7 @@ const letters = {
 export default function Cell({
     type,
     letter,
-    fgColor,
-    bgColor,
+    color,
     debugLetter,
     light,
     memory,
@@ -26,8 +25,15 @@ export default function Cell({
     debug,
     importantRooms
 }) {
-    bgColor = bgColor || COLORS[type].bg;
-    fgColor = fgColor || COLORS[type].fg;
+    let bgColor;
+    let fgColor;
+    if (color.type === 'rgb') {
+        bgColor = `rgb(${color.bg.r}, ${color.bg.g}, ${color.bg.b})`
+        fgColor = `rgb(${color.fg.r}, ${color.fg.g}, ${color.fg.b})`
+    } else {
+        bgColor = color.bg;
+        fgColor = color.fg;
+    }
     // if (memory && light === DARKNESS_MAX) {
     //     type = memory.type;
     //     letter = memory.type;
@@ -43,7 +49,11 @@ export default function Cell({
             key={`row${row}col${col}`}
             row={row}
             col={col}
-            style={{ backgroundColor: bgColor, color: fgColor, cursor: "crosshair" }}
+            style={{
+                backgroundColor: bgColor,
+                color: fgColor,
+                cursor: "crosshair"
+            }}
             light={light}
             type={type}
         >
