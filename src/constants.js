@@ -142,18 +142,17 @@ export const DIR_TO_TRANSFORM = {
 
 // colors
 export const COLORS = {
-    [CELL_TYPES.FLOOR]: "#bfbfbf",
-    [CELL_TYPES.DEBUG]: "#1fa90f",
-    [CELL_TYPES.WALL]: "#777463",
-    [CELL_TYPES.DOOR]: "#299c32",
-    [CELL_TYPES.ROCK]: "#777463",
-    [CELL_TYPES.LAKE]: "#5e5eca",
-    [CELL_TYPES.SHALLOW_WATER]: "#acade8",
-    [CELL_TYPES.GRASS]: { bg: "#23232b", fg: "#8bc34a" },
-    [CELL_TYPES.DEAD_GRASS]: { bg: "#23232b", fg: "#8c542b" },
-    [CELL_TYPES.DEAD_FOLIAGE]: { bg: "#23232b", fg: "#8c542b" },
-    [CELL_TYPES.FOLIAGE]: { bg: "#23232b", fg: "#8bc34a" },
-    [CELL_TYPES.RUBBLE: { bg: "#23232b", fg: "black" }
+    FLOOR: { bg: "#23232b", fg: "#bfbfbf" },
+    WALL: { bg: "#f5e3cd", fg: "black" },
+    DOOR: { bg: "#795548", fg: "black" },
+    ROCK: { bg: "black", fg: "black" },
+    LAKE: { bg: "#5e5eca", fg: "black" },
+    SHALLOW_WATER: { bg: "#70a0ed", fg: "black" },
+    GRASS: { bg: "#23232b", fg: "#8bc34a" },
+    DEAD_GRASS: { bg: "#23232b", fg: "#8c542b" },
+    DEAD_FOLIAGE: { bg: "#23232b", fg: "#8c542b" },
+    FOLIAGE: { bg: "#23232b", fg: "#8bc34a" },
+    RUBBLE: { bg: "#23232b", fg: "black" }
 };
 
 // cell types
@@ -163,8 +162,8 @@ export const CELLS = {
         letter: ","
     },
     [CELL_TYPES.FLOOR]: {
-        type: "floor",
-        color: COLORS.floor,
+        type: "FLOOR",
+        color: COLORS.FLOOR,
         letter: ".",
         priority: 9,
         flags: {
@@ -173,8 +172,8 @@ export const CELLS = {
         }
     },
     [CELL_TYPES.WALL]: {
-        type: "wall",
-        color: COLORS.wall,
+        type: "WALL",
+        color: COLORS.WALL,
         letter: "#",
         priority: 10,
         flags: {
@@ -183,8 +182,8 @@ export const CELLS = {
         }
     },
     [CELL_TYPES.ROCK]: {
-        type: "rock",
-        color: COLORS.rock,
+        type: "ROCK",
+        color: COLORS.ROCK,
         letter: "#",
         priority: 15,
         flags: {
@@ -193,8 +192,8 @@ export const CELLS = {
         }
     },
     [CELL_TYPES.DOOR]: {
-        type: "door",
-        color: COLORS.door,
+        type: "DOOR",
+        color: COLORS.DOOR,
         letter: "+",
         priority: 16,
         flags: {
@@ -203,28 +202,28 @@ export const CELLS = {
         }
     },
     [CELL_TYPES.EXIT_NORTH]: {
-        type: "door",
-        color: COLORS.door,
+        type: "DOOR",
+        color: COLORS.DOOR,
         letter: "^"
     },
     [CELL_TYPES.EXIT_EAST]: {
-        type: "door",
-        color: COLORS.door,
+        type: "DOOR",
+        color: COLORS.DOOR,
         letter: ">"
     },
     [CELL_TYPES.EXIT_SOUTH]: {
-        type: "door",
-        color: COLORS.door,
+        type: "DOOR",
+        color: COLORS.DOOR,
         letter: "V"
     },
     [CELL_TYPES.EXIT_WEST]: {
-        type: "door",
-        color: COLORS.door,
+        type: "DOOR",
+        color: COLORS.DOOR,
         letter: "<"
     },
     [CELL_TYPES.LAKE]: {
-        type: "lake",
-        color: COLORS.lake,
+        type: "LAKE",
+        color: COLORS.LAKE,
         letter: "~",
         priority: 20,
         flags: {
@@ -233,8 +232,8 @@ export const CELLS = {
         }
     },
     [CELL_TYPES.SHALLOW_WATER]: {
-        type: "shallow_water",
-        color: COLORS.shallow_water,
+        type: "SHALLOW_WATER",
+        color: COLORS.SHALLOW_WATER,
         letter: "~",
         priority: 17,
         flags: {
@@ -243,27 +242,22 @@ export const CELLS = {
         }
     },
     [CELL_TYPES.GRANITE]: {
-        type: "granite",
-        color: COLORS.granite,
+        type: "GRANITE",
+        color: COLORS.GRANITE,
         letter: "g",
         flags: {
             OBSTRUCTS_PASSIBILITY: true,
             OBSTRUCTS_VISION: true
         }
     },
-    [CELL_TYPES.CRYSTAL_WALL]: {
-        type: "crystal_wall",
-        color: COLORS.crystal_wall,
-        letter: "c"
-    },
     [CELL_TYPES.LUMINESCENT_FUNGUS]: {
         type: "luminescent_fungus",
-        color: COLORS.luminescent_fungus,
+        color: COLORS.LUMINESCENT_FUNGUS,
         letter: "f"
     },
     [CELL_TYPES.GRASS]: {
-        type: "grass",
-        color: COLORS.grass,
+        type: "GRASS",
+        color: COLORS.GRASS,
         letter: '"',
         priority: 10,
         flags: {
@@ -272,8 +266,8 @@ export const CELLS = {
         }
     },
     [CELL_TYPES.DEAD_GRASS]: {
-        type: "dead_grass",
-        color: COLORS.dead_grass,
+        type: "DEAD_GRASS",
+        color: COLORS.DEAD_GRASS,
         letter: '"',
         priority: 10,
         flags: {
@@ -282,8 +276,8 @@ export const CELLS = {
         }
     },
     [CELL_TYPES.DEAD_FOLIAGE]: {
-        type: "dead_foliage",
-        color: COLORS.dead_grass,
+        type: "DEAD_FOLIAGE",
+        color: COLORS.DEAD_GRASS,
         letter: String.fromCharCode("0x03B3"),
         priority: 12,
         flags: {
@@ -292,8 +286,8 @@ export const CELLS = {
         }
     },
     [CELL_TYPES.FOLIAGE]: {
-        type: "foliage",
-        color: COLORS.grass,
+        type: "FOLIAGE",
+        color: COLORS.GRASS,
         letter: String.fromCharCode("0x03B3"),
         priority: 12,
         flags: {
@@ -302,8 +296,8 @@ export const CELLS = {
         }
     },
     [CELL_TYPES.RUBBLE]: {
-        type: "rubble",
-        color: COLORS.grass,
+        type: "RUBBLE",
+        color: COLORS.GRASS,
         letter: ",",
         priority: 11,
         flags: {
@@ -617,19 +611,44 @@ export const AUTO_GENERATOR_CATALOG = [
 ];
 export const PERLIN_COLORS = {
     [CELL_TYPES.WALL]: {
-        baseColor: "#777463",
+        baseColor: {
+            r: 119,
+            g: 116,
+            b: 99
+        },
         variance: {
-            r: 50,
-            g: 50,
-            b: 0
+            r: 20,
+            g: 0,
+            b: 20,
+            overall: 20
         }
     },
-    [CELL_TYPES.DEEP_WATER]: {
-        baseColor: "#5FA2EA",
+    [CELL_TYPES.LAKE]: {
+        // 5,	10,		31,		5,		5,			5,			6
+        baseColor: {
+            r: 40,
+            g: 40,
+            b: 150
+        },
+        variance: {
+            r: 5,
+            g: 5,
+            b: 5,
+            overall: 15
+        }
+    },
+    [CELL_TYPES.SHALLOW_WATER]: {
+        // 20,20,		60,		0,		0,			10,			10,
+        baseColor: {
+            r: 80,
+            g: 80,
+            b: 180
+        },
         variance: {
             r: 0,
-            g: 107,
-            b: 0
+            g: 0,
+            b: 10,
+            overall: 15
         }
     }
 };

@@ -37,7 +37,9 @@ const {
     clamp,
     boundX,
     boundY,
-    gridFromDimensions
+    gridFromDimensions,
+    randomRange,
+    randomRangeInclusive
 } = require("../utils");
 
 const pathDistance = require("./dijkstra").pathDistance;
@@ -79,14 +81,6 @@ const randn = (min, max, skew) => {
     num *= max - min;
     num += min;
     return num;
-};
-
-const randomRange = (min, max) => {
-    return Math.floor(Math.random() * (max - min)) + min;
-};
-
-const randomRangeInclusive = (min, max) => {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
 const shuffleList = l => {
@@ -1119,7 +1113,6 @@ const spawnDungeonFeature = ({ row, col, hyperspace, feature }) => {
             hyperspace,
             feature: subsequentFeature
         });
-        debugger;
         // perform a pseudo-fill onto the spawnMap here to get the higher priority feature on top
         // (room, topOffset, leftOffset, grid, map)
         spawnMap = drawContinuousShapeOnGrid(
@@ -1197,7 +1190,7 @@ const finishWalls = (dungeon, diagonals) => {
                 foundExposure = false;
                 for (
                     let direction = 0;
-                    direction < (diagonals ? 8 :4) && !foundExposure;
+                    direction < (diagonals ? 8 : 4) && !foundExposure;
                     direction++
                 ) {
                     y1 = row + DIR_TO_TRANSFORM[direction].y;
