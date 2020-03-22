@@ -610,45 +610,234 @@ export const AUTO_GENERATOR_CATALOG = [
     // ]
 ];
 export const PERLIN_COLORS = {
-    [CELL_TYPES.WALL]: {
-        baseColor: {
-            r: 119,
-            g: 116,
-            b: 99
+    [CELL_TYPES.FLOOR]: {
+        bg: {
+            baseColor: {
+                r: 35,
+                g: 35,
+                b: 43
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 0,
+                overall: 4
+            }
         },
-        variance: {
-            r: 20,
-            g: 0,
-            b: 20,
-            overall: 20
+        fg: {
+            baseColor: {
+                r: 191,
+                g: 191,
+                b: 191,
+            },
+            variance: {
+                r: 2,
+                g: 2,
+                b: 2,
+                overall: 2
+            }
+        }
+    },
+    [CELL_TYPES.WALL]: {
+        bg: {
+            baseColor: {
+                r: 119,
+                g: 116,
+                b: 99
+            },
+            variance: {
+                r: 20,
+                g: 0,
+                b: 20,
+                overall: 20
+            }
+        },
+        fg: {
+            baseColor: {
+                r: 0,
+                g: 0,
+                b: 0
+            },
+            variance: {
+                r: 20,
+                g: 0,
+                b: 20,
+                overall: 20
+            }
         }
     },
     [CELL_TYPES.LAKE]: {
         // 5,	10,		31,		5,		5,			5,			6
-        baseColor: {
-            r: 40,
-            g: 40,
-            b: 150
+        bg: {
+            baseColor: {
+                r: 40,
+                g: 40,
+                b: 150
+            },
+            variance: {
+                r: 5,
+                g: 5,
+                b: 5,
+                overall: 15
+            }
         },
-        variance: {
-            r: 5,
-            g: 5,
-            b: 5,
-            overall: 15
+        fg: {
+            baseColor: {
+                r: 80,
+                g: 80,
+                b: 180
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 10,
+                overall: 15
+            }
         }
     },
     [CELL_TYPES.SHALLOW_WATER]: {
         // 20,20,		60,		0,		0,			10,			10,
-        baseColor: {
-            r: 80,
-            g: 80,
-            b: 180
+        bg: {
+            baseColor: {
+                r: 80,
+                g: 80,
+                b: 180
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 10,
+                overall: 15
+            }
         },
-        variance: {
-            r: 0,
-            g: 0,
-            b: 10,
-            overall: 15
+        fg: {
+            baseColor: {
+                r: 150,
+                g: 150,
+                b: 200
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 10,
+                overall: 30
+            }
+        }
+    },
+    [CELL_TYPES.GRASS]: {
+        // 15,	40,		15,		15,		50,			15,			10
+        fg: {
+            baseColor: {
+                r: 15,
+                g: 40,
+                b: 15
+            },
+            variance: {
+                r: 15,
+                g: 50,
+                b: 15,
+                overall: 20
+            }
+        },
+        bg: {
+            baseColor: {
+                r: 35,
+                g: 35,
+                b: 43
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 0,
+                overall: 0
+            }
+        }
+    },
+    [CELL_TYPES.FOLIAGE]: {
+        // 15,	40,		15,		15,		50,			15,			10
+        fg: {
+            baseColor: {
+                r: 15,
+                g: 40,
+                b: 15
+            },
+            variance: {
+                r: 15,
+                g: 50,
+                b: 15,
+                overall: 10
+            }
+        },
+        bg: {
+            baseColor: {
+                r: 35,
+                g: 35,
+                b: 43
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 0,
+                overall: 0
+            }
+        }
+    },
+    [CELL_TYPES.DEAD_GRASS]: {
+        // 20,	13,		0,		20,		10,			5,			10
+        fg: {
+            baseColor: {
+                r: 51,
+                g: 33,
+                b: 24
+            },
+            variance: {
+                r: 20,
+                g: 10,
+                b: 5,
+                overall: 20
+            }
+        },
+        bg: {
+            baseColor: {
+                r: 35,
+                g: 35,
+                b: 43
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 0,
+                overall: 0
+            }
+        }
+    },
+    [CELL_TYPES.DEAD_FOLIAGE]: {
+        // 20,	13,		0,		20,		10,			5,			10
+        fg: {
+            baseColor: {
+                r: 51,
+                g: 33,
+                b: 24
+            },
+            variance: {
+                r: 20,
+                g: 10,
+                b: 5,
+                overall: 20
+            }
+        },
+        bg: {
+            baseColor: {
+                r: 35,
+                g: 35,
+                b: 43
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 0,
+                overall: 0
+            }
         }
     }
 };

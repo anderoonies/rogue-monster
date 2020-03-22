@@ -29,8 +29,7 @@ export default function Cell({
     let fgColor;
     if (color.type === 'rgb') {
         bgColor = `rgb(${color.bg.r}, ${color.bg.g}, ${color.bg.b})`
-        // todo
-        fgColor = color.fg;
+        fgColor = `rgb(${color.fg.r}, ${color.fg.g}, ${color.fg.b})`
     } else {
         bgColor = color.bg;
         fgColor = color.fg;

@@ -129,43 +129,60 @@ const clampColor = c => {
 
 // returns cells with a bgColor and a fgColor
 const colorizeDungeon = dungeon => {
-    const noiseMaps = Object.keys(PERLIN_COLORS).reduce((acc, cellType) => {
-        acc[cellType] = {
-            r: generateNoiseMap({
-                height: HEIGHT,
-                width: WIDTH
-            }),
-            g: generateNoiseMap({
-                height: HEIGHT,
-                width: WIDTH
-            }),
-            b: generateNoiseMap({
-                height: HEIGHT,
-                width: WIDTH
-            })
-        };
-        return acc;
-    }, {});
+    const noiseMaps = Object.entries(PERLIN_COLORS).reduce(
+        (acc, [cellType, rules]) => {
+            acc[cellType] = Object.keys(rules).reduce((acc, ruleCategory) => {
+                acc[ruleCategory] = {
+                    r: generateNoiseMap({
+                        height: HEIGHT,
+                        width: WIDTH
+                    }),
+                    g: generateNoiseMap({
+                        height: HEIGHT,
+                        width: WIDTH
+                    }),
+                    b: generateNoiseMap({
+                        height: HEIGHT,
+                        width: WIDTH
+                    })
+                };
+                return acc;
+            }, {});
+            return acc;
+        },
+        {}
+    );
 
     const colorMap = dungeon.map((row, rowIndex) => {
         return row.map((cellType, colIndex) => {
             if (cellType in noiseMaps) {
-                const componentNoiseMaps = noiseMaps[cellType];
-                const colorRules = PERLIN_COLORS[cellType];
                 debugger;
-                const noiseComponents = {
-                    r: componentNoiseMaps.r[rowIndex][colIndex],
-                    g: componentNoiseMaps.g[rowIndex][colIndex],
-                    b: componentNoiseMaps.b[rowIndex][colIndex]
+                const fgComponentNoiseMaps = noiseMaps[cellType].fg;
+                const bgComponentNoiseMaps = noiseMaps[cellType].bg;
+                const fgColorRules = PERLIN_COLORS[cellType].fg;
+                const bgColorRules = PERLIN_COLORS[cellType].bg;
+                const fgNoiseComponents = {
+                    r: fgComponentNoiseMaps.r[rowIndex][colIndex],
+                    g: fgComponentNoiseMaps.g[rowIndex][colIndex],
+                    b: fgComponentNoiseMaps.b[rowIndex][colIndex]
+                };
+                const bgNoiseComponents = {
+                    r: bgComponentNoiseMaps.r[rowIndex][colIndex],
+                    g: bgComponentNoiseMaps.g[rowIndex][colIndex],
+                    b: bgComponentNoiseMaps.b[rowIndex][colIndex]
                 };
                 return {
                     type: "rgb",
                     bg: colorizeCell({
-                        baseColor: colorRules.baseColor,
-                        noise: noiseComponents,
-                        variance: colorRules.variance
+                        baseColor: bgColorRules.baseColor,
+                        noise: bgNoiseComponents,
+                        variance: bgColorRules.variance
                     }),
-                    fg: CELLS[cellType].color
+                    fg: colorizeCell({
+                        baseColor: fgColorRules.baseColor,
+                        noise: fgNoiseComponents,
+                        variance: fgColorRules.variance
+                    })
                 };
             } else {
                 return {
