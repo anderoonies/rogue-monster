@@ -50,6 +50,7 @@ import {
     CELL_TYPES
 } from "./constants";
 import { pathDistance, traceShortestPath } from "./levels/dijkstra";
+import colorizeDungeon from "./color";
 
 const clipFOV = (player, dungeon) => {
     let adjustedPlayer = {
@@ -198,6 +199,7 @@ const initialState = {
     displayDungeon: dungeon,
     dijkstraLeft: undefined,
     dijkstraRight: undefined,
+    colorizedDungeon: gridFromDimensions(HEIGHT, WIDTH, 0),
     debugMsg: "Wait a second..."
 };
 const reducer = (state = initialState, action) => {
@@ -297,13 +299,19 @@ const reducer = (state = initialState, action) => {
             ];
         }
         case ACCRETION_INIT: {
-            const { rooms, dungeon } = accreteRooms([], 45, undefined);
+            const { rooms, dungeon, dungeonRaw } = accreteRooms(
+                [],
+                45,
+                undefined
+            );
+            const colorizedDungeon = colorizeDungeon(dungeonRaw);
             return [
                 {
                     ...state,
                     debugMsg:
                         "Generated a dungeon. Hit Step to make a new one.",
                     dungeon,
+                    colorizedDungeon,
                     rooms,
                     displayDungeon: dungeon,
                     settled: false,

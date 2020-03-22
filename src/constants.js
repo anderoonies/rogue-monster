@@ -20,24 +20,6 @@ export const DEBUG_FLAGS = {
 export const WIDTH = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 60;
 export const HEIGHT = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 50;
 
-// colors
-export const COLORS = {
-    floor: { bg: "#23232b", fg: "#bfbfbf" },
-    debug: { bg: "#1fa90f", fg: "black" },
-    wall: { bg: "#f5e3cd", fg: "black" },
-    player: { bg: "#299c32", fg: "black" },
-    door: { bg: "#795548", fg: "black" },
-    rock: { bg: "black", fg: "black" },
-    hallway: { bg: "#bfbfbf", fg: "black" },
-    lake: { bg: "#5e5eca", fg: "black" },
-    shallow_water: { bg: "#acade8", fg: "black" },
-    grass: { bg: "#23232b", fg: "#8bc34a" },
-    dead_grass: { bg: "#23232b", fg: "#8c542b" },
-    dead_foliage: { bg: "#23232b", fg: "#8c542b" },
-    foliage: { bg: "#23232b", fg: "#8bc34a" },
-    rubble: { bg: "#23232b", fg: "black" }
-};
-
 // rooms
 export const ROOM_MIN_WIDTH = 4;
 export const ROOM_MAX_WIDTH = 20;
@@ -158,11 +140,26 @@ export const DIR_TO_TRANSFORM = {
     }
 };
 
+// colors
+export const COLORS = {
+    [CELL_TYPES.FLOOR]: "#bfbfbf",
+    [CELL_TYPES.DEBUG]: "#1fa90f",
+    [CELL_TYPES.WALL]: "#777463",
+    [CELL_TYPES.DOOR]: "#299c32",
+    [CELL_TYPES.ROCK]: "#777463",
+    [CELL_TYPES.LAKE]: "#5e5eca",
+    [CELL_TYPES.SHALLOW_WATER]: "#acade8",
+    [CELL_TYPES.GRASS]: { bg: "#23232b", fg: "#8bc34a" },
+    [CELL_TYPES.DEAD_GRASS]: { bg: "#23232b", fg: "#8c542b" },
+    [CELL_TYPES.DEAD_FOLIAGE]: { bg: "#23232b", fg: "#8c542b" },
+    [CELL_TYPES.FOLIAGE]: { bg: "#23232b", fg: "#8bc34a" },
+    [CELL_TYPES.RUBBLE: { bg: "#23232b", fg: "black" }
+};
+
 // cell types
 export const CELLS = {
     [CELL_TYPES.DEBUG]: {
         type: "debug",
-        color: COLORS.debug,
         letter: ","
     },
     [CELL_TYPES.FLOOR]: {
@@ -618,3 +615,23 @@ export const AUTO_GENERATOR_CATALOG = [
     //     12
     // ]
 ];
+export const PERLIN_COLORS = {
+    [CELL_TYPES.WALL]: {
+        baseColor: "#777463",
+        variance: {
+            r: 50,
+            g: 50,
+            b: 0
+        }
+    },
+    [CELL_TYPES.DEEP_WATER]: {
+        baseColor: "#5FA2EA",
+        variance: {
+            r: 0,
+            g: 107,
+            b: 0
+        }
+    }
+};
+
+export const PERLIN_PERIOD = 4;

@@ -1,10 +1,5 @@
 import React from "react";
-import {
-    DIM_THRESHOLD,
-    DARK_THRESHOLD,
-    DARKNESS_MAX,
-    COLORS
-} from "./constants";
+import { DIM_THRESHOLD, DARK_THRESHOLD, DARKNESS_MAX, COLORS } from "./constants";
 
 const letters = {
     floor: ",",
