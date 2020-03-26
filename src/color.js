@@ -1,4 +1,5 @@
 const PERLIN_COLORS = require("./constants").PERLIN_COLORS;
+const RANDOM_COLORS = require("./constants").RANDOM_COLORS;
 const HEIGHT = require("./constants").HEIGHT;
 const WIDTH = require("./constants").WIDTH;
 const PERLIN_PERIOD = require("./constants").PERLIN_PERIOD;
@@ -156,7 +157,6 @@ const colorizeDungeon = dungeon => {
     const colorMap = dungeon.map((row, rowIndex) => {
         return row.map((cellType, colIndex) => {
             if (cellType in noiseMaps) {
-                debugger;
                 const fgComponentNoiseMaps = noiseMaps[cellType].fg;
                 const bgComponentNoiseMaps = noiseMaps[cellType].bg;
                 const fgColorRules = PERLIN_COLORS[cellType].fg;
@@ -182,6 +182,29 @@ const colorizeDungeon = dungeon => {
                         baseColor: fgColorRules.baseColor,
                         noise: fgNoiseComponents,
                         variance: fgColorRules.variance
+                    })
+                };
+            } else if (cellType in RANDOM_COLORS) {
+                const rule = RANDOM_COLORS[cellType];
+                return {
+                    type: "rgb",
+                    bg: colorizeCell({
+                        baseColor: rule.bg.baseColor,
+                        noise: {
+                            r: randomRange(0, rule.bg.noise.r),
+                            g: randomRange(0, rule.bg.noise.g),
+                            b: randomRange(0, rule.bg.noise.b)
+                        },
+                        variance: rule.bg.variance
+                    }),
+                    fg: colorizeCell({
+                        baseColor: rule.fg.baseColor,
+                        noise: {
+                            r: randomRange(0, rule.fg.noise.r),
+                            g: randomRange(0, rule.fg.noise.g),
+                            b: randomRange(0, rule.fg.noise.b)
+                        },
+                        variance: rule.fg.variance
                     })
                 };
             } else {

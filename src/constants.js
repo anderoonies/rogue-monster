@@ -1,6 +1,6 @@
 // global
 export const CELL_WIDTH = 1;
-export const FOV = 30;
+export const FOV = 10;
 
 // light
 export const BRIGHT_THRESHOLD = 10;
@@ -55,7 +55,8 @@ export const CELL_TYPES = {
     SHALLOW_WATER: 13,
     DEAD_FOLIAGE: 14,
     FOLIAGE: 15,
-    RUBBLE: 16
+    RUBBLE: 16,
+    TORCH_WALL: 18
 };
 
 export const EXIT_TYPE = CELL_TYPE => {
@@ -144,7 +145,7 @@ export const DIR_TO_TRANSFORM = {
 export const COLORS = {
     FLOOR: { bg: "#23232b", fg: "#bfbfbf" },
     WALL: { bg: "#f5e3cd", fg: "black" },
-    DOOR: { bg: "#795548", fg: "black" },
+    DOOR: { bg: "#583b30", fg: "black" },
     ROCK: { bg: "black", fg: "black" },
     LAKE: { bg: "#5e5eca", fg: "black" },
     SHALLOW_WATER: { bg: "#70a0ed", fg: "black" },
@@ -152,7 +153,8 @@ export const COLORS = {
     DEAD_GRASS: { bg: "#23232b", fg: "#8c542b" },
     DEAD_FOLIAGE: { bg: "#23232b", fg: "#8c542b" },
     FOLIAGE: { bg: "#23232b", fg: "#8bc34a" },
-    RUBBLE: { bg: "#23232b", fg: "black" }
+    RUBBLE: { bg: "#23232b", fg: "#bfbfbf" },
+    TORCH_WALL: { bg: "red", fg: "yellow" }
 };
 
 // cell types
@@ -279,7 +281,7 @@ export const CELLS = {
         type: "DEAD_FOLIAGE",
         color: COLORS.DEAD_GRASS,
         letter: String.fromCharCode("0x03B3"),
-        priority: 12,
+        priority: 10,
         flags: {
             OBSTRUCTS_PASSIBILITY: false,
             OBSTRUCTS_VISION: false
@@ -289,7 +291,7 @@ export const CELLS = {
         type: "FOLIAGE",
         color: COLORS.GRASS,
         letter: String.fromCharCode("0x03B3"),
-        priority: 12,
+        priority: 10,
         flags: {
             OBSTRUCTS_PASSIBILITY: true,
             OBSTRUCTS_VISION: false
@@ -297,12 +299,22 @@ export const CELLS = {
     },
     [CELL_TYPES.RUBBLE]: {
         type: "RUBBLE",
-        color: COLORS.GRASS,
+        color: COLORS.RUBBLE,
         letter: ",",
         priority: 11,
         flags: {
             OBSTRUCTS_PASSIBILITY: false,
             OBSTRUCTS_VISION: false
+        }
+    },
+    [CELL_TYPES.TORCH_WALL]: {
+        type: "TORCH_WALL",
+        color: COLORS.TORCH_WALL,
+        letter: "#",
+        priority: 11,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: true,
+            OBSTRUCTS_VISION: true
         }
     }
 };
@@ -399,52 +411,65 @@ const FEATURES = {
     DF_GRASS: 3,
     DF_DEAD_GRASS: 4,
     DF_DEAD_FOLIAGE: 5,
-    DF_FOLIAGE: 6
+    DF_FOLIAGE: 6,
+    DF_TORCH_WALL: 7
 };
 
 export const DUNGEON_FEATURE_CATALOG = {
     [FEATURES.DF_GRANITE_COLUMN]: {
         tile: CELL_TYPES.GRANITE,
         start: 80,
-        decr: 70
+        decr: 70,
+        propagate: true
     },
     [FEATURES.DF_CRYSTAL_WALL]: {
         tile: CELL_TYPES.CRYSTAL_WALL,
         start: 200,
-        decr: 50
+        decr: 50,
+        propagate: true
     },
     [FEATURES.DF_LUMINESCENT_FUNGUS]: {
         tile: CELL_TYPES.DF_LUMINESCENT_FUNGUS,
         start: 60,
-        decr: 8
+        decr: 8,
+        propagate: true
     },
     [FEATURES.DF_GRASS]: {
         tile: CELL_TYPES.GRASS,
         start: 75,
         decr: 10,
-        subsequentFeature: FEATURES.DF_FOLIAGE
+        subsequentFeature: FEATURES.DF_FOLIAGE,
+        propagate: true
     },
     [FEATURES.DF_DEAD_GRASS]: {
         tile: CELL_TYPES.DEAD_GRASS,
         start: 75,
         decr: 10,
         propagationTerrain: CELL_TYPES.FLOOR,
-        subsequentFeature: FEATURES.DF_DEAD_FOLIAGE
+        subsequentFeature: FEATURES.DF_DEAD_FOLIAGE,
+        propagate: true
     },
     [FEATURES.DF_DEAD_FOLIAGE]: {
         tile: CELL_TYPES.DEAD_FOLIAGE,
         start: 50,
-        decr: 30
+        decr: 30,
+        propagate: true
     },
     [FEATURES.DF_FOLIAGE]: {
         tile: CELL_TYPES.FOLIAGE,
         start: 50,
-        decr: 30
+        decr: 30,
+        propagate: true
     },
     [FEATURES.DF_RUBBLE]: {
         tile: CELL_TYPES.RUBBLE,
         start: 45,
-        decr: 23
+        decr: 23,
+        propagate: true
+    },
+    [FEATURES.DF_TORCH_WALL]: {
+        tile: CELL_TYPES.TORCH_WALL,
+        propagate: false
     }
 };
 
@@ -536,6 +561,20 @@ export const AUTO_GENERATOR_CATALOG = [
         minIntercept: 0,
         minSlope: 0,
         maxNumber: 4
+    },
+    {
+        terrain: 0,
+        layer: 0,
+        DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_TORCH_WALL],
+        machine: 0,
+        reqDungeon: CELL_TYPES.WALL,
+        reqLiquid: -1,
+        minDepth: 0,
+        maxDepth: 9,
+        frequency: 100,
+        minIntercept: 100,
+        minSlope: 70,
+        maxNumber: 10
     }
     // [0, 0, DF_FOLIAGE, 0, FLOOR, NOTHING, 0, 8, 15, 1000, -333, 10],
     // [
@@ -609,6 +648,49 @@ export const AUTO_GENERATOR_CATALOG = [
     //     12
     // ]
 ];
+
+export const RANDOM_COLORS = {
+    [CELL_TYPES.TORCH_WALL]: {
+        bg: {
+            baseColor: {
+                r: 210,
+                g: 94,
+                b: 73
+            },
+            noise: {
+                r: 0,
+                g: 30,
+                b: 20,
+                overall: 0
+            },
+            variance: {
+                r: 1,
+                g: 1,
+                b: 1,
+                overall: 0
+            }
+        },
+        fg: {
+            baseColor: {
+                r: 251,
+                g: 139,
+                b: 40
+            },
+            noise: {
+                r: 0,
+                g: 15,
+                b: 7,
+                overall: 0
+            },
+            variance: {
+                r: 1,
+                g: 1,
+                b: 1,
+                overall: 0
+            }
+        }
+    }
+};
 export const PERLIN_COLORS = {
     [CELL_TYPES.FLOOR]: {
         bg: {
@@ -628,7 +710,7 @@ export const PERLIN_COLORS = {
             baseColor: {
                 r: 191,
                 g: 191,
-                b: 191,
+                b: 191
             },
             variance: {
                 r: 2,
@@ -733,10 +815,10 @@ export const PERLIN_COLORS = {
                 b: 15
             },
             variance: {
-                r: 15,
-                g: 50,
-                b: 15,
-                overall: 20
+                r: 30,
+                g: 100,
+                b: 60,
+                overall: 30
             }
         },
         bg: {
@@ -762,10 +844,10 @@ export const PERLIN_COLORS = {
                 b: 15
             },
             variance: {
-                r: 15,
-                g: 50,
-                b: 15,
-                overall: 10
+                r: 30,
+                g: 100,
+                b: 60,
+                overall: 30
             }
         },
         bg: {
@@ -791,10 +873,10 @@ export const PERLIN_COLORS = {
                 b: 24
             },
             variance: {
-                r: 20,
-                g: 10,
-                b: 5,
-                overall: 20
+                r: 50,
+                g: 40,
+                b: 10,
+                overall: 25
             }
         },
         bg: {

@@ -47,7 +47,8 @@ import {
     DEBUG_FLAGS,
     IMPASSIBLE,
     CA,
-    CELL_TYPES
+    CELL_TYPES,
+    CELLS
 } from "./constants";
 import { pathDistance, traceShortestPath } from "./levels/dijkstra";
 import colorizeDungeon from "./color";
@@ -98,7 +99,8 @@ const clipFOV = (player, dungeon) => {
     const clippedFOV = dungeon.slice(fovTop, fovBottom).map(row => {
         return row.slice(fovLeft, fovRight);
     });
-    clippedFOV[adjustedPlayer.y][adjustedPlayer.x] = { type: "player" };
+    debugger;
+    clippedFOV[adjustedPlayer.y - 1][adjustedPlayer.x] = { type: "player" };
     return {
         clippedFOV,
         centeredPlayer: adjustedPlayer,
@@ -153,19 +155,26 @@ const flatten = (clippedFOV, clippedMemory, light) => {
 //     radius: 50,
 //     nRooms: 150
 // });
-// const player = {
-//     x: boundX(initialRooms[0].center.x),
-//     y: boundY(initialRooms[0].center.y)
-// };
 // const initialDungeon = roomsToDungeon(initialRooms, [], WIDTH, HEIGHT);
-// const initialMemory = new Array(initialDungeon.length)
-//     .fill(undefined)
-//     .map(row => {
-//         return new Array(initialDungeon[0].length).fill(undefined);
-//     });
+
+const initialDungeonInProgress = gridFromDimensions(HEIGHT, WIDTH, 0);
+const { dungeon, dungeonRaw } = DEBUG_FLAGS.SHOW_ACCRETION
+    ? accreteRooms([], 0, initialDungeonInProgress)
+    : {
+          dungeon: annotateCells(initialDungeonInProgress),
+          dungeonRaw: initialDungeonInProgress
+      };
+//
+// const player = {
+//     x: 25,
+//     y: 50
+// };
+//
+// const initialMemory = gridFromDimensions(HEIGHT, WIDTH, undefined);
+//
 // const { clippedFOV, centeredPlayer, leftOffset, topOffset } = clipFOV(
 //     player,
-//     initialDungeon
+//     dungeon
 // );
 // const { lightMap, updatedMemory, clippedMemory } = light(
 //     centeredPlayer,
@@ -175,14 +184,6 @@ const flatten = (clippedFOV, clippedMemory, light) => {
 //     topOffset
 // );
 // const fov = flatten(clippedFOV, clippedMemory, lightMap);
-
-const initialDungeonInProgress = gridFromDimensions(HEIGHT, WIDTH, 0);
-const { dungeon, dungeonRaw } = DEBUG_FLAGS.SHOW_ACCRETION
-    ? accreteRooms([], 0, initialDungeonInProgress)
-    : {
-          dungeon: annotateCells(initialDungeonInProgress),
-          dungeonRaw: initialDungeonInProgress
-      };
 
 const initialState = {
     rooms: [],
@@ -485,12 +486,13 @@ const reducer = (state = initialState, action) => {
                 ].letter = "r";
             }
             if (state.dijkstraLeft && state.dijkstraRight) {
+                debugger;
                 const { distance, nodeMap } = pathDistance({
                     start: state.dijkstraLeft,
                     end: state.dijkstraRight,
                     dungeon: annotatedDungeon,
                     inaccessible: cell => {
-                        return cell.type === "lake" || cell.type === "rock";
+                        return CELLS[cell.constant].flags.OBSTRUCTS_PASSIBILITY;
                     }
                 });
                 let path;
