@@ -751,6 +751,7 @@ const annotateCells = dungeon => {
             const annotatedCell = CELLS[celltype];
             return {
                 ...annotatedCell,
+                constant: celltype,
                 row: rowIndex,
                 col: colIndex
             };
@@ -998,8 +999,8 @@ const randomMatchingLocation = ({ dungeon, dungeonType, liquidType }) => {
         col = Math.floor(randomizedCoordinates[i] / HEIGHT);
     } while (
         i < 500 &&
-        (dungeonType > -1 && dungeon[row][col] !== dungeonType) &&
-        (liquidType > -1 && dungeon[row][col] !== liquidType) &&
+        ((dungeonType > -1 && dungeon[row][col] !== dungeonType) ||
+            (liquidType > -1 && dungeon[row][col] !== liquidType)) &&
         cellHasTerrainFlag(row, col)
     );
     if (i >= 500) {
@@ -1032,7 +1033,8 @@ const spawnMapDF = ({
     startProbability,
     probabilitySlope,
     spawnMap,
-    tile
+    tile,
+    propagate
 }) => {
     let madeChange = true;
     let t = 1;
@@ -1041,7 +1043,8 @@ const spawnMapDF = ({
 
     let transform;
     let i2, j2;
-    let successful = false;
+    // if there's no spread, we were succesful already
+    let successful = false || !propagate;
     while (madeChange && startProbability > 0) {
         madeChange = false;
         t++;
@@ -1102,6 +1105,7 @@ const spawnDungeonFeature = ({ row, col, hyperspace, feature }) => {
         requirePropagationTerrain: feature.propagationTerrain !== undefined,
         startProbability: feature.start,
         probabilitySlope: feature.decr,
+        propagate: feature.propagate,
         tile: feature.tile,
         spawnMap
     }));
@@ -1248,6 +1252,8 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
     }
     dungeon = addLoops(dungeon);
     dungeon = addLakes(dungeon);
+    // add NESW walls first to give torches a place to attach
+    dungeon = finishWalls(dungeon, false);
     dungeon = runAutogenerators(dungeon);
     dungeon = finishWalls(dungeon, true);
     return {
