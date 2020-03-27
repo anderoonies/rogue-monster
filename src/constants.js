@@ -56,7 +56,8 @@ export const CELL_TYPES = {
     DEAD_FOLIAGE: 14,
     FOLIAGE: 15,
     RUBBLE: 16,
-    TORCH_WALL: 18
+    TORCH_WALL: 18,
+    HAZE: 19
 };
 
 export const EXIT_TYPE = CELL_TYPE => {
@@ -154,7 +155,8 @@ export const COLORS = {
     DEAD_FOLIAGE: { bg: "#23232b", fg: "#8c542b" },
     FOLIAGE: { bg: "#23232b", fg: "#8bc34a" },
     RUBBLE: { bg: "#23232b", fg: "#bfbfbf" },
-    TORCH_WALL: { bg: "red", fg: "yellow" }
+    TORCH_WALL: { bg: "red", fg: "yellow" },
+    HAZE: { bg: "pink", fg: "pink", opacity: 0.4 }
 };
 
 // cell types
@@ -166,7 +168,7 @@ export const CELLS = {
     [CELL_TYPES.FLOOR]: {
         type: "FLOOR",
         color: COLORS.FLOOR,
-        letter: ".",
+        letter: " ",
         priority: 9,
         flags: {
             OBSTRUCTS_PASSIBILITY: false,
@@ -315,6 +317,17 @@ export const CELLS = {
         flags: {
             OBSTRUCTS_PASSIBILITY: true,
             OBSTRUCTS_VISION: true
+        }
+    },
+    [CELL_TYPES.HAZE]: {
+        type: "HAZE",
+        color: COLORS.HAZE,
+        letter: " ",
+        priority: 0,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: false,
+            OBSTRUCTS_VISION: false,
+            YIELD_LETTER: true
         }
     }
 };

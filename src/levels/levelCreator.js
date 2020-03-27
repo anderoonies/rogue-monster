@@ -31,6 +31,9 @@ const PASSIBLE = require("../constants").PASSIBLE;
 
 const AUTO_GENERATOR_CATALOG = require("../constants").AUTO_GENERATOR_CATALOG;
 const DUNGEON_FEATURE_CATALOG = require("../constants").DUNGEON_FEATURE_CATALOG;
+const colorizeDungeon = require("../color").colorizeDungeon;
+const colorizeCell = require("../color").colorizeCell;
+const makeNoiseMaps = require("../color").makeNoiseMaps;
 
 const {
     coordinatesAreInMap,
@@ -1234,6 +1237,56 @@ const finishWalls = (dungeon, diagonals) => {
     return dungeon;
 };
 
+const addAtmosphericLayer = dungeon => {
+    return gridFromDimensions(HEIGHT, WIDTH, CELLS[CELL_TYPES.HAZE]);
+};
+
+const flattenLayers = layers => {
+    const flattenedDungeon = gridFromDimensions(HEIGHT, WIDTH, 0);
+    const flattenedColors = gridFromDimensions(HEIGHT, WIDTH, COLORS.ROCK);
+    let lowerCell;
+    let currentCell;
+    let bg;
+    let fg;
+    const noiseMaps = makeNoiseMaps();
+    for (let i = 0; i < layers.length; i++) {
+        for (let row = 0; row < HEIGHT; row++) {
+            for (let col = 0; col < WIDTH; col++) {
+                if (i > 0) {
+                    debugger;
+                    lowerCell = layers[i - 1][row][col];
+                }
+                currentCell = layers[i][row][col];
+                flattenedDungeon[row][col] = { ...layers[i][row][col] };
+                ({ bg, fg } = colorizeCell({
+                    cell: currentCell,
+                    noiseMaps,
+                    row,
+                    col
+                }));
+                debugger;
+                if (lowerCell) {
+                    if (currentCell.flags.YIELD_LETTER) {
+                        flattenedDungeon[row][col].letter = lowerCell.letter;
+                    }
+                    if (currentCell.color.opacity) {
+                        bg = flattenedColors[row][col].bg.mix(
+                            bg,
+                            currentCell.color.opacity
+                        );
+                        fg = flattenedColors[row][col].fg.mix(
+                            fg,
+                            currentCell.color.opacity
+                        );
+                    }
+                }
+                flattenedColors[row][col] = { bg, fg };
+            }
+        }
+    }
+    return { flattenedDungeon, flattenedColors };
+};
+
 const accreteRoom = dungeon => {
     let { hyperspace, doorSites } = designRoomInHyperspace();
     dungeon = placeRoomInDungeon(hyperspace, dungeon, doorSites);
@@ -1256,9 +1309,16 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
     dungeon = finishWalls(dungeon, false);
     dungeon = runAutogenerators(dungeon);
     dungeon = finishWalls(dungeon, true);
+
+    const layers = [annotateCells(dungeon), addAtmosphericLayer(dungeon)];
+
+    const { flattenedDungeon, flattenedColors } = flattenLayers(layers);
+
     return {
         rooms,
-        dungeon: annotateCells(dungeon),
+        baseDungeon: dungeon,
+        dungeon: flattenedDungeon,
+        colorizedDungeon: flattenedColors,
         dungeonRaw: dungeon
     };
 };

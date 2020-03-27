@@ -51,7 +51,6 @@ import {
     CELLS
 } from "./constants";
 import { pathDistance, traceShortestPath } from "./levels/dijkstra";
-import colorizeDungeon from "./color";
 
 const clipFOV = (player, dungeon) => {
     let adjustedPlayer = {
@@ -300,12 +299,11 @@ const reducer = (state = initialState, action) => {
             ];
         }
         case ACCRETION_INIT: {
-            const { rooms, dungeon, dungeonRaw } = accreteRooms(
+            const { rooms, baseDungeon, dungeon, colorizedDungeon} = accreteRooms(
                 [],
                 45,
                 undefined
             );
-            const colorizedDungeon = colorizeDungeon(dungeonRaw);
             return [
                 {
                     ...state,
@@ -314,6 +312,7 @@ const reducer = (state = initialState, action) => {
                     dungeon,
                     colorizedDungeon,
                     rooms,
+                    baseDungeon,
                     displayDungeon: dungeon,
                     settled: false,
                     fov: [],
@@ -486,13 +485,12 @@ const reducer = (state = initialState, action) => {
                 ].letter = "r";
             }
             if (state.dijkstraLeft && state.dijkstraRight) {
-                debugger;
                 const { distance, nodeMap } = pathDistance({
                     start: state.dijkstraLeft,
                     end: state.dijkstraRight,
-                    dungeon: annotatedDungeon,
-                    inaccessible: cell => {
-                        return CELLS[cell.constant].flags.OBSTRUCTS_PASSIBILITY;
+                    dungeon: state.baseDungeon,
+                    inaccessible: cellConstant => {
+                        return CELLS[cellConstant].flags.OBSTRUCTS_PASSIBILITY;
                     }
                 });
                 let path;
