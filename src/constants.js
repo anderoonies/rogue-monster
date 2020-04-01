@@ -17,8 +17,8 @@ export const DEBUG_FLAGS = {
     SHOW_CA: false
 };
 
-export const WIDTH = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 60;
-export const HEIGHT = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 50;
+export const WIDTH = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 80;
+export const HEIGHT = DEBUG_FLAGS.SHOW_CA || DEBUG_FLAGS.ROOMS_ONLY ? 50 : 32;
 
 // rooms
 export const ROOM_MIN_WIDTH = 4;

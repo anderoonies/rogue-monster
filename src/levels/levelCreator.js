@@ -592,12 +592,16 @@ const designRoomInHyperspace = () => {
             room = makeCARoom();
             break;
     }
-    hyperspace = drawContinuousShapeOnGrid(
-        room,
-        HEIGHT / 2 - Math.floor(room.length / 2),
-        WIDTH / 2 - Math.floor(room[0].length / 2),
-        hyperspace
-    );
+    try {
+        hyperspace = drawContinuousShapeOnGrid(
+            room,
+            HEIGHT / 2 - Math.floor(room.length / 2),
+            WIDTH / 2 - Math.floor(room[0].length / 2),
+            hyperspace
+        );
+    } catch (e) {
+        debugger;
+    }
 
     let doorSites = chooseRandomDoorSites(
         room,
@@ -880,15 +884,15 @@ const addLakes = dungeon => {
     let blob, minX, minY, maxX, maxY;
 
     for (
-        let lakeMaxHeight = 50, lakeMaxWidth = 50;
+        let lakeMaxHeight = 15, lakeMaxWidth = 30;
         lakeMaxWidth >= 10;
-        lakeMaxHeight -= 5, lakeMaxWidth -= 5
+        lakeMaxHeight -= 2, lakeMaxWidth -= 2
     ) {
         ({ blob, minX, minY, maxX, maxY } = runCA({
             width: 30,
             height: 15,
             rules: CA_RULES.LAKE_GENERATION,
-            nIterations: 6,
+            nIterations: 5,
             startingPercent: 0.45
         }));
 
@@ -1288,16 +1292,10 @@ const flattenLayers = layers => {
                         debugger;
                     }
                     if (bg.alpha() < 1) {
-                        bg = flattenedColors[row][col].bg.mix(
-                            bg,
-                            bg.alpha()
-                        );
+                        bg = flattenedColors[row][col].bg.mix(bg, bg.alpha());
                     }
                     if (fg.alpha() < 1) {
-                        fg = flattenedColors[row][col].fg.mix(
-                            fg,
-                            fg.alpha()
-                        );
+                        fg = flattenedColors[row][col].fg.mix(fg, fg.alpha());
                     }
                 }
                 flattenedColors[row][col] = { bg, fg };
