@@ -6,6 +6,13 @@ import {
     DARK_THRESHOLD,
     DARKNESS_MAX
 } from "./constants";
+
+const gridFromDimensions = require("./utils").gridFromDimensions;
+const randomRange = require("./utils").randomRange;
+const HEIGHT = require("./constants").HEIGHT;
+const WIDTH = require("./constants").WIDTH;
+const Color = require("color");
+
 // http://www.roguebasin.com/index.php?title=FOV_using_recursive_shadowcasting
 //              Shared
 //             edge by
@@ -50,10 +57,10 @@ const cast = ({
     leftViewSlope,
     rightViewSlope,
     transform,
-    player,
+    row,
+    col,
     dungeon,
-    light,
-    memory
+    light
 }) => {
     let currentCol;
     let previousWasBlocked = false;
@@ -63,8 +70,8 @@ const cast = ({
     for (let currentCol = startColumn; currentCol <= width; currentCol++) {
         let xc = currentCol;
         for (let yc = currentCol; yc >= 0; yc--) {
-            let gridX = player.x + xc * transform.xx + yc * transform.xy;
-            let gridY = player.y + xc * transform.yx + yc * transform.yy;
+            let gridX = col + xc * transform.xx + yc * transform.xy;
+            let gridY = row + xc * transform.yx + yc * transform.yy;
 
             if (gridX < 0 || gridX >= width || gridY < 0 || gridY >= height) {
                 continue;
@@ -80,10 +87,9 @@ const cast = ({
                 break;
             }
 
-            light[gridY][gridX] = 0;
-            memory[gridY][gridX] = dungeon[gridY][gridX];
+            light[gridY][gridX] = 1;
             let currentlyBlocked;
-            currentlyBlocked = dungeon[gridY][gridX].type !== "floor";
+            currentlyBlocked = dungeon[gridY][gridX].flags.OBSTRUCTS_VISION;
             if (previousWasBlocked) {
                 if (currentlyBlocked) {
                     // keep traversing
@@ -100,10 +106,10 @@ const cast = ({
                             leftViewSlope,
                             rightViewSlope: leftBlockSlope,
                             transform,
-                            player,
+                            row,
+                            col,
                             dungeon,
-                            light,
-                            memory
+                            light
                         });
                     }
 
@@ -141,4 +147,144 @@ export const scan = (player, dungeon) => {
         });
     }
     return { lightMap: updatedLight, memory: updatedMemory };
+};
+
+const getFOVMask = ({ grid, row, col, dungeon, radius }) => {
+    let light = gridFromDimensions(HEIGHT, WIDTH, 0);
+    for (var octant = 0; octant < 8; octant++) {
+        cast({
+            startColumn: 1,
+            leftViewSlope: 1.0,
+            rightViewSlope: 0.0,
+            transform: octantTransforms[octant],
+            dungeon,
+            row,
+            col,
+            grid,
+            light
+        });
+    }
+    return light;
+};
+
+const paintLight = ({ lightSource, row, col, dungeon, lightMap }) => {
+    const radius = Math.floor(
+        randomRange(lightSource.minRadius, lightSource.maxRadius) / 100
+    );
+    let lightHyperspace = gridFromDimensions(HEIGHT, WIDTH, undefined);
+    for (
+        let i = Math.max(0, row - radius);
+        i < HEIGHT && i < row + radius;
+        i++
+    ) {
+        for (
+            let j = Math.max(0, col - radius);
+            j < WIDTH && j < col + radius;
+            j++
+        ) {
+            lightHyperspace[i][j] = 0;
+        }
+    }
+
+    lightHyperspace = getFOVMask({
+        grid: lightHyperspace,
+        dungeon,
+        row,
+        col,
+        radius
+    });
+
+    debugger;
+    const randComponent = randomRange(0, lightSource.color.variance.overall);
+    const colorComponents = {
+        r:
+            randComponent +
+            lightSource.color.baseColor.r +
+            randomRange(0, lightSource.color.variance.r),
+        g:
+            randComponent +
+            lightSource.color.baseColor.g +
+            randomRange(0, lightSource.color.variance.g),
+        b:
+            randComponent +
+            lightSource.color.baseColor.b +
+            randomRange(0, lightSource.color.variance.b)
+    };
+
+    let lightMultiplier;
+    const fadeToPercent = lightSource.fade;
+    for (
+        let i = Math.max(0, row - radius);
+        i < HEIGHT && i < row + radius;
+        i++
+    ) {
+        for (
+            let j = Math.max(0, col - radius);
+            j < WIDTH && j < col + radius;
+            j++
+        ) {
+            if (lightHyperspace[i][j]) {
+                lightMultiplier =
+                    100 -
+                    ((100 - fadeToPercent) *
+                        Math.sqrt((i - row) ** 2 + (j - col) ** 2)) /
+                        radius;
+
+                if (lightMap[i][j] === undefined) {
+                    lightMap[i][j] = { r: 0, g: 0, b: 0 };
+                }
+
+                Object.entries(colorComponents).forEach(
+                    ([component, value]) => {
+                        lightMap[i][j][component] +=
+                            (value * lightMultiplier) / 255;
+                    }
+                );
+            }
+        }
+    }
+
+    if (lightMap[row][col] === undefined) {
+        lightMap[row][col] = { r: 0, g: 0, b: 0 };
+    }
+    lightMap[row][col].r += colorComponents.r;
+    lightMap[row][col].g += colorComponents.g;
+    lightMap[row][col].b += colorComponents.b;
+
+    return lightMap;
+};
+
+export const lightDungeon = ({ dungeon, colors }) => {
+    let lightMap = gridFromDimensions(HEIGHT, WIDTH, undefined);
+    for (let row = 0; row < HEIGHT; row++) {
+        for (let col = 0; col < WIDTH; col++) {
+            if (dungeon[row][col].glowLight) {
+                debugger;
+                lightMap = paintLight({
+                    lightSource: dungeon[row][col].glowLight,
+                    dungeon,
+                    row,
+                    col,
+                    lightMap
+                });
+            }
+        }
+    }
+    for (let row = 0; row < HEIGHT; row++) {
+        for (let col = 0; col < WIDTH; col++) {
+            if (lightMap[row][col]) {
+                colors[row][col].fg = Color({
+                    r: colors[row][col].fg.red() + lightMap[row][col].r,
+                    g: colors[row][col].fg.green() + lightMap[row][col].g,
+                    b: colors[row][col].fg.blue() + lightMap[row][col].b
+                });
+                colors[row][col].bg = Color({
+                    r: colors[row][col].bg.red() + lightMap[row][col].r,
+                    g: colors[row][col].bg.green() + lightMap[row][col].g,
+                    b: colors[row][col].bg.blue() + lightMap[row][col].b
+                });
+            }
+        }
+    }
+    return colors;
 };

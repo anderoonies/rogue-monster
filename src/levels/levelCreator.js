@@ -34,6 +34,7 @@ const DUNGEON_FEATURE_CATALOG = require("../constants").DUNGEON_FEATURE_CATALOG;
 const colorizeDungeon = require("../color").colorizeDungeon;
 const colorizeCell = require("../color").colorizeCell;
 const makeNoiseMaps = require("../color").makeNoiseMaps;
+const lightDungeon = require('../light').lightDungeon;
 
 const {
     coordinatesAreInMap,
@@ -1154,9 +1155,6 @@ const runAutogenerators = (dungeon, layer = 0) => {
         if (autogenerator.layer !== layer) {
             continue;
         }
-        if (layer === 1) {
-            debugger;
-        }
         count = Math.min(
             (autogenerator.minIntercept + depth * autogenerator.minSlope) / 100,
             autogenerator.maxNumber
@@ -1288,9 +1286,6 @@ const flattenLayers = layers => {
                     if (currentCell.flags.YIELD_LETTER) {
                         flattenedDungeon[row][col].letter = lowerCell.letter;
                     }
-                    if (currentCell.color == undefined) {
-                        debugger;
-                    }
                     if (bg.alpha() < 1) {
                         bg = flattenedColors[row][col].bg.mix(bg, bg.alpha());
                     }
@@ -1335,6 +1330,11 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
     ];
 
     const { flattenedDungeon, flattenedColors } = flattenLayers(layers);
+
+    const lightedColors = lightDungeon({
+        dungeon: flattenedDungeon,
+        colors: flattenedColors
+    });
 
     return {
         rooms,

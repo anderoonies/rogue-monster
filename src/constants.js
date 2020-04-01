@@ -324,6 +324,26 @@ export const CELLS = {
         color: COLORS.TORCH_WALL,
         letter: "#",
         priority: 11,
+        glowLight: {
+            // {1000, 1000, 1},		50,		false}
+            minRadius: 1000,
+            maxRadius: 1000,
+            fade: 20,
+            color: {
+                baseColor: {
+                    // {75,	38, 15, 0, 15, 	7, 	0, true}
+                    r: 75,
+                    g: 38,
+                    b: 15
+                },
+                variance: {
+                    r: 0,
+                    g: 15,
+                    b: 7,
+                    overall: 0,
+                }
+            }
+        },
         flags: {
             OBSTRUCTS_PASSIBILITY: true,
             OBSTRUCTS_VISION: true
@@ -347,7 +367,27 @@ export const CELLS = {
         priority: 0,
         flags: {
             YIELD_LETTER: true
-        }
+        },
+        glowLight: {
+            // {1000, 1000, 1},		50,		false}
+            minRadius: 200,
+            maxRadius: 200,
+            fade: 10,
+            color: {
+                baseColor: {
+                    // 100,	100,	75,		0,		0,			0,			0
+                    r: 25,
+                    g: 25,
+                    b: 20
+                },
+                variance: {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    overall: 0,
+                }
+            }
+        },
     }
 };
 
