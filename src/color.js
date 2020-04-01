@@ -6,6 +6,7 @@ const PERLIN_PERIOD = require("./constants").PERLIN_PERIOD;
 const CELLS = require("./constants").CELLS;
 const gridFromDimensions = require("./utils").gridFromDimensions;
 const randomRange = require("./utils").randomRange;
+const Color = require("color");
 
 const randomVector = () => {
     const x = (Math.random() < 0.5 ? -1 : 1) * Math.random();
@@ -117,105 +118,126 @@ const colorizeCell = ({ baseColor, noise, variance }) => {
     const b = clampColor(
         Math.floor(baseColor.b + noise.b * variance.b + shift)
     );
-    return {
+    return Color({
         r,
         g,
-        b
-    };
+        b,
+        alpha: baseColor.alpha === undefined ? 1 : baseColor.alpha
+    });
+};
+
+const colorizeCellTwoPointOh = ({ cell, noiseMaps, row, col }) => {
+    let cellType = cell.constant;
+    if (cell.constant in noiseMaps) {
+        const fgComponentNoiseMaps = noiseMaps[cellType].fg;
+        const bgComponentNoiseMaps = noiseMaps[cellType].bg;
+        const fgColorRules = PERLIN_COLORS[cellType].fg;
+        const bgColorRules = PERLIN_COLORS[cellType].bg;
+        const fgNoiseComponents = {
+            r: fgComponentNoiseMaps.r[row][col],
+            g: fgComponentNoiseMaps.g[row][col],
+            b: fgComponentNoiseMaps.b[row][col]
+        };
+        const bgNoiseComponents = {
+            r: bgComponentNoiseMaps.r[row][col],
+            g: bgComponentNoiseMaps.g[row][col],
+            b: bgComponentNoiseMaps.b[row][col]
+        };
+        return {
+            type: "rgb",
+            bg: colorizeCell({
+                baseColor: bgColorRules.baseColor,
+                noise: bgNoiseComponents,
+                variance: bgColorRules.variance
+            }),
+            fg: colorizeCell({
+                baseColor: fgColorRules.baseColor,
+                noise: fgNoiseComponents,
+                variance: fgColorRules.variance
+            })
+        };
+    } else if (cellType in RANDOM_COLORS) {
+        const rule = RANDOM_COLORS[cellType];
+        return {
+            type: "rgb",
+            bg: colorizeCell({
+                baseColor: rule.bg.baseColor,
+                noise: {
+                    r: randomRange(0, rule.bg.noise.r),
+                    g: randomRange(0, rule.bg.noise.g),
+                    b: randomRange(0, rule.bg.noise.b)
+                },
+                variance: rule.bg.variance
+            }),
+            fg: colorizeCell({
+                baseColor: rule.fg.baseColor,
+                noise: {
+                    r: randomRange(0, rule.fg.noise.r),
+                    g: randomRange(0, rule.fg.noise.g),
+                    b: randomRange(0, rule.fg.noise.b)
+                },
+                variance: rule.fg.variance
+            })
+        };
+    } else {
+        try {
+            return {
+                type: "hex",
+                fg: Color(cell.color.fg),
+                bg: Color(cell.color.bg)
+            };
+        } catch (e) {
+            debugger;
+        }
+    }
 };
 
 const clampColor = c => {
     return Math.min(255, Math.max(0, c));
 };
 
+const makeNoiseMaps = () => {
+    return Object.entries(PERLIN_COLORS).reduce((acc, [cellType, rules]) => {
+        acc[cellType] = Object.keys(rules).reduce((acc, ruleCategory) => {
+            acc[ruleCategory] = {
+                r: generateNoiseMap({
+                    height: HEIGHT,
+                    width: WIDTH
+                }),
+                g: generateNoiseMap({
+                    height: HEIGHT,
+                    width: WIDTH
+                }),
+                b: generateNoiseMap({
+                    height: HEIGHT,
+                    width: WIDTH
+                })
+            };
+            return acc;
+        }, {});
+        return acc;
+    }, {});
+};
+
 // returns cells with a bgColor and a fgColor
 const colorizeDungeon = dungeon => {
-    const noiseMaps = Object.entries(PERLIN_COLORS).reduce(
-        (acc, [cellType, rules]) => {
-            acc[cellType] = Object.keys(rules).reduce((acc, ruleCategory) => {
-                acc[ruleCategory] = {
-                    r: generateNoiseMap({
-                        height: HEIGHT,
-                        width: WIDTH
-                    }),
-                    g: generateNoiseMap({
-                        height: HEIGHT,
-                        width: WIDTH
-                    }),
-                    b: generateNoiseMap({
-                        height: HEIGHT,
-                        width: WIDTH
-                    })
-                };
-                return acc;
-            }, {});
-            return acc;
-        },
-        {}
-    );
+    const noiseMaps = makeNoiseMaps();
 
     const colorMap = dungeon.map((row, rowIndex) => {
         return row.map((cellType, colIndex) => {
-            if (cellType in noiseMaps) {
-                const fgComponentNoiseMaps = noiseMaps[cellType].fg;
-                const bgComponentNoiseMaps = noiseMaps[cellType].bg;
-                const fgColorRules = PERLIN_COLORS[cellType].fg;
-                const bgColorRules = PERLIN_COLORS[cellType].bg;
-                const fgNoiseComponents = {
-                    r: fgComponentNoiseMaps.r[rowIndex][colIndex],
-                    g: fgComponentNoiseMaps.g[rowIndex][colIndex],
-                    b: fgComponentNoiseMaps.b[rowIndex][colIndex]
-                };
-                const bgNoiseComponents = {
-                    r: bgComponentNoiseMaps.r[rowIndex][colIndex],
-                    g: bgComponentNoiseMaps.g[rowIndex][colIndex],
-                    b: bgComponentNoiseMaps.b[rowIndex][colIndex]
-                };
-                return {
-                    type: "rgb",
-                    bg: colorizeCell({
-                        baseColor: bgColorRules.baseColor,
-                        noise: bgNoiseComponents,
-                        variance: bgColorRules.variance
-                    }),
-                    fg: colorizeCell({
-                        baseColor: fgColorRules.baseColor,
-                        noise: fgNoiseComponents,
-                        variance: fgColorRules.variance
-                    })
-                };
-            } else if (cellType in RANDOM_COLORS) {
-                const rule = RANDOM_COLORS[cellType];
-                return {
-                    type: "rgb",
-                    bg: colorizeCell({
-                        baseColor: rule.bg.baseColor,
-                        noise: {
-                            r: randomRange(0, rule.bg.noise.r),
-                            g: randomRange(0, rule.bg.noise.g),
-                            b: randomRange(0, rule.bg.noise.b)
-                        },
-                        variance: rule.bg.variance
-                    }),
-                    fg: colorizeCell({
-                        baseColor: rule.fg.baseColor,
-                        noise: {
-                            r: randomRange(0, rule.fg.noise.r),
-                            g: randomRange(0, rule.fg.noise.g),
-                            b: randomRange(0, rule.fg.noise.b)
-                        },
-                        variance: rule.fg.variance
-                    })
-                };
-            } else {
-                return {
-                    type: "hex",
-                    ...CELLS[cellType].color
-                };
-            }
+            return colorizeCellTwoPointOh({
+                cellType,
+                noiseMaps,
+                row: rowIndex,
+                col: colIndex
+            });
         });
     });
     return colorMap;
 };
 
-export default colorizeDungeon;
+module.exports = {
+    colorizeDungeon,
+    colorizeCell: colorizeCellTwoPointOh,
+    makeNoiseMaps
+};

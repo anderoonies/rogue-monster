@@ -38,6 +38,7 @@ export const ROOM_TYPES = {
 
 export const CELL_TYPES = {
     DEBUG: -10,
+    EMPTY: -1,
     WALL: 17,
     ROCK: 0,
     FLOOR: 1,
@@ -56,7 +57,9 @@ export const CELL_TYPES = {
     DEAD_FOLIAGE: 14,
     FOLIAGE: 15,
     RUBBLE: 16,
-    TORCH_WALL: 18
+    TORCH_WALL: 18,
+    HAZE: 19,
+    LIGHT_POOL: 20
 };
 
 export const EXIT_TYPE = CELL_TYPE => {
@@ -154,7 +157,9 @@ export const COLORS = {
     DEAD_FOLIAGE: { bg: "#23232b", fg: "#8c542b" },
     FOLIAGE: { bg: "#23232b", fg: "#8bc34a" },
     RUBBLE: { bg: "#23232b", fg: "#bfbfbf" },
-    TORCH_WALL: { bg: "red", fg: "yellow" }
+    TORCH_WALL: { bg: "red", fg: "yellow" },
+    HAZE: { bg: "pink", fg: "pink", opacity: 0.4 },
+    EMPTY: { bg: undefined, fg: undefined }
 };
 
 // cell types
@@ -163,10 +168,17 @@ export const CELLS = {
         type: "debug",
         letter: ","
     },
+    [CELL_TYPES.EMPTY]: {
+        type: "EMPTY",
+        color: COLORS.EMPTY,
+        letter: " ",
+        priority: -1,
+        flags: {}
+    },
     [CELL_TYPES.FLOOR]: {
         type: "FLOOR",
         color: COLORS.FLOOR,
-        letter: ".",
+        letter: " ",
         priority: 9,
         flags: {
             OBSTRUCTS_PASSIBILITY: false,
@@ -316,6 +328,26 @@ export const CELLS = {
             OBSTRUCTS_PASSIBILITY: true,
             OBSTRUCTS_VISION: true
         }
+    },
+    [CELL_TYPES.HAZE]: {
+        type: "HAZE",
+        color: COLORS.HAZE,
+        letter: " ",
+        priority: 0,
+        flags: {
+            OBSTRUCTS_PASSIBILITY: false,
+            OBSTRUCTS_VISION: false,
+            YIELD_LETTER: true
+        }
+    },
+    [CELL_TYPES.LIGHT_POOL]: {
+        type: "LIGHT_POOL",
+        color: COLORS.LIGHT_POOL,
+        letter: " ",
+        priority: 0,
+        flags: {
+            YIELD_LETTER: true
+        }
     }
 };
 
@@ -438,6 +470,7 @@ export const DUNGEON_FEATURE_CATALOG = {
         tile: CELL_TYPES.GRASS,
         start: 75,
         decr: 10,
+        propagationTerrains: [CELL_TYPES.FLOOR, CELL_TYPES.DEAD_GRASS],
         subsequentFeature: FEATURES.DF_FOLIAGE,
         propagate: true
     },
@@ -445,7 +478,7 @@ export const DUNGEON_FEATURE_CATALOG = {
         tile: CELL_TYPES.DEAD_GRASS,
         start: 75,
         decr: 10,
-        propagationTerrain: CELL_TYPES.FLOOR,
+        propagationTerrains: [CELL_TYPES.FLOOR, CELL_TYPES.GRASS],
         subsequentFeature: FEATURES.DF_DEAD_FOLIAGE,
         propagate: true
     },
@@ -453,13 +486,23 @@ export const DUNGEON_FEATURE_CATALOG = {
         tile: CELL_TYPES.DEAD_FOLIAGE,
         start: 50,
         decr: 30,
-        propagate: true
+        propagate: true,
+        propagationTerrains: [
+            CELL_TYPES.FLOOR,
+            CELL_TYPES.DEAD_GRASS,
+            CELL_TYPES.GRASS
+        ]
     },
     [FEATURES.DF_FOLIAGE]: {
         tile: CELL_TYPES.FOLIAGE,
         start: 50,
         decr: 30,
-        propagate: true
+        propagate: true,
+        propagationTerrains: [
+            CELL_TYPES.FLOOR,
+            CELL_TYPES.DEAD_GRASS,
+            CELL_TYPES.GRASS
+        ]
     },
     [FEATURES.DF_RUBBLE]: {
         tile: CELL_TYPES.RUBBLE,
@@ -470,6 +513,15 @@ export const DUNGEON_FEATURE_CATALOG = {
     [FEATURES.DF_TORCH_WALL]: {
         tile: CELL_TYPES.TORCH_WALL,
         propagate: false
+    },
+    [FEATURES.DF_LIGHT_POOL]: {
+        tile: CELL_TYPES.LIGHT_POOL,
+        propagate: true,
+        start: 66,
+        decr: 20,
+        propagationTerrains: Object.values(CELL_TYPES).filter(
+            type => !(type === CELL_TYPES.WALL || type === CELL_TYPES.ROCK)
+        )
     }
 };
 
@@ -523,8 +575,8 @@ export const AUTO_GENERATOR_CATALOG = [
         layer: 0,
         DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_GRASS],
         machine: 0,
-        reqDungeon: CELL_TYPES.FLOOR,
-        reqLiquid: -1,
+        reqDungeon: [CELL_TYPES.FLOOR],
+        reqLiquid: [],
         minDepth: 0,
         maxDepth: 10,
         frequency: 0,
@@ -537,8 +589,8 @@ export const AUTO_GENERATOR_CATALOG = [
         layer: 0,
         DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_DEAD_GRASS],
         machine: 0,
-        reqDungeon: CELL_TYPES.FLOOR,
-        reqLiquid: -1,
+        reqDungeon: [CELL_TYPES.FLOOR],
+        reqLiquid: [],
         minDepth: 0,
         maxDepth: 9,
         frequency: 0,
@@ -553,8 +605,8 @@ export const AUTO_GENERATOR_CATALOG = [
         layer: 0,
         DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_RUBBLE],
         machine: 0,
-        reqDungeon: CELL_TYPES.FLOOR,
-        reqLiquid: -1,
+        reqDungeon: [CELL_TYPES.FLOOR],
+        reqLiquid: [],
         minDepth: 0,
         maxDepth: 9,
         frequency: 30,
@@ -567,14 +619,33 @@ export const AUTO_GENERATOR_CATALOG = [
         layer: 0,
         DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_TORCH_WALL],
         machine: 0,
-        reqDungeon: CELL_TYPES.WALL,
-        reqLiquid: -1,
+        reqDungeon: [CELL_TYPES.WALL],
+        reqLiquid: [],
         minDepth: 0,
         maxDepth: 9,
         frequency: 100,
         minIntercept: 100,
         minSlope: 70,
         maxNumber: 10
+    },
+    {
+        terrain: 0,
+        layer: 1,
+        DF: DUNGEON_FEATURE_CATALOG[FEATURES.DF_LIGHT_POOL],
+        machine: 0,
+        reqDungeon: Object.values(CELL_TYPES).filter(
+            type => !(type === CELL_TYPES.WALL || type === CELL_TYPES.ROCK)
+        ),
+        reqLiquid: Object.values(CELL_TYPES).filter(
+            type => !(type === CELL_TYPES.WALL || type === CELL_TYPES.ROCK)
+        ),
+        minDepth: 0,
+        // this doesnt do anything yet, make it a million, who cares
+        maxDepth: 1000000,
+        frequency: 70,
+        minIntercept: 70,
+        minSlope: 70,
+        maxNumber: 2
     }
     // [0, 0, DF_FOLIAGE, 0, FLOOR, NOTHING, 0, 8, 15, 1000, -333, 10],
     // [
@@ -919,6 +990,36 @@ export const PERLIN_COLORS = {
                 g: 0,
                 b: 0,
                 overall: 0
+            }
+        }
+    },
+    [CELL_TYPES.LIGHT_POOL]: {
+        fg: {
+            baseColor: {
+                r: 0,
+                g: 0,
+                b: 0,
+                alpha: 0
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 0,
+                overall: 0
+            }
+        },
+        bg: {
+            baseColor: {
+                r: 220,
+                g: 220,
+                b: 220,
+                alpha: 0.2
+            },
+            variance: {
+                r: 0,
+                g: 0,
+                b: 0,
+                overall: 30
             }
         }
     }
