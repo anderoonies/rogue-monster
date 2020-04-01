@@ -990,7 +990,7 @@ const cellHasTerrainFlag = (row, col) => {
     return true;
 };
 
-const randomMatchingLocation = ({ dungeon, dungeonType, liquidType }) => {
+const randomMatchingLocation = ({ dungeon, dungeonTypes, liquidTypes }) => {
     let failSaveCount = 0;
     let row, col;
     let randomizedCoordinates = Array.from(Array(WIDTH * HEIGHT).keys());
@@ -1002,8 +1002,10 @@ const randomMatchingLocation = ({ dungeon, dungeonType, liquidType }) => {
         col = Math.floor(randomizedCoordinates[i] / HEIGHT);
     } while (
         i < 500 &&
-        ((dungeonType > -1 && dungeon[row][col] !== dungeonType) ||
-            (liquidType > -1 && dungeon[row][col] !== liquidType)) &&
+        ((dungeonTypes.length &&
+            dungeonTypes.indexOf(dungeon[row][col]) === -1) ||
+            (liquidTypes.length &&
+                liquidTypes.indexOf(dungeon[row][col]) === -1)) &&
         cellHasTerrainFlag(row, col)
     );
     if (i >= 500) {
@@ -1018,7 +1020,10 @@ const fillSpawnMap = ({ hyperspace, spawnMap }) => {
         for (let col = 0; col < WIDTH; col++) {
             if (spawnMap[row][col]) {
                 fillTile = CELLS[spawnMap[row][col]];
-                if (CELLS[hyperspace[row][col]].priority < fillTile.priority) {
+                if (
+                    !hyperspace[row][col] ||
+                    CELLS[hyperspace[row][col]].priority < fillTile.priority
+                ) {
                     hyperspace[row][col] = spawnMap[row][col];
                 }
             }
@@ -1031,7 +1036,7 @@ const spawnMapDF = ({
     row,
     col,
     hyperspace,
-    propagationTerrain,
+    propagationTerrains,
     requirePropagationTerrain,
     startProbability,
     probabilitySlope,
@@ -1061,9 +1066,10 @@ const spawnMapDF = ({
                         if (
                             coordinatesAreInMap(i2, j2) &&
                             (!requirePropagationTerrain ||
-                                (propagationTerrain > 0 &&
-                                    hyperspace[i2][j2] ===
-                                        propagationTerrain)) &&
+                                (propagationTerrains &&
+                                    propagationTerrains.indexOf(
+                                        hyperspace[i2][j2]
+                                    ) > -1)) &&
                             randomRange(0, 100) < probability
                         ) {
                             spawnMap[i2][j2] = t;
@@ -1104,8 +1110,8 @@ const spawnDungeonFeature = ({ row, col, hyperspace, feature }) => {
         row,
         col,
         hyperspace,
-        propagationTerrain: feature.propagationTerrain,
-        requirePropagationTerrain: feature.propagationTerrain !== undefined,
+        propagationTerrains: feature.propagationTerrains,
+        requirePropagationTerrain: feature.propagationTerrains !== undefined,
         startProbability: feature.start,
         probabilitySlope: feature.decr,
         propagate: feature.propagate,
@@ -1132,17 +1138,21 @@ const spawnDungeonFeature = ({ row, col, hyperspace, feature }) => {
     return spawnMap;
 };
 
-const runAutogenerators = dungeon => {
+const runAutogenerators = (dungeon, layer = 0) => {
     let autogenerator;
     let count;
     let depth = 0;
-    let hyperspace = dungeon.map(row => {
-        return row.slice();
-    });
+    let hyperspace = gridFromDimensions(HEIGHT, WIDTH, CELL_TYPES.EMPTY);
     let spawnMap;
     let autogeneratorRow, autogeneratorCol, autogeneratorLocation;
     for (let AG = 0; AG < AUTO_GENERATOR_CATALOG.length; AG++) {
         autogenerator = AUTO_GENERATOR_CATALOG[AG];
+        if (autogenerator.layer !== layer) {
+            continue;
+        }
+        if (layer === 1) {
+            debugger;
+        }
         count = Math.min(
             (autogenerator.minIntercept + depth * autogenerator.minSlope) / 100,
             autogenerator.maxNumber
@@ -1156,9 +1166,9 @@ const runAutogenerators = dungeon => {
 
         for (let i = 0; i < count; i++) {
             autogeneratorLocation = randomMatchingLocation({
-                dungeon: dungeon,
-                dungeonType: autogenerator.reqDungeon,
-                liquidType: autogenerator.reqLiquid
+                dungeon,
+                dungeonTypes: autogenerator.reqDungeon,
+                liquidTypes: autogenerator.reqLiquid
             });
             if (autogeneratorLocation) {
                 autogeneratorRow = autogeneratorLocation.row;
@@ -1166,7 +1176,7 @@ const runAutogenerators = dungeon => {
                 spawnMap = spawnDungeonFeature({
                     row: autogeneratorRow,
                     col: autogeneratorCol,
-                    hyperspace,
+                    hyperspace: dungeon,
                     feature: autogenerator.DF
                 });
                 hyperspace = fillSpawnMap({
@@ -1238,12 +1248,17 @@ const finishWalls = (dungeon, diagonals) => {
 };
 
 const addAtmosphericLayer = dungeon => {
-    return gridFromDimensions(HEIGHT, WIDTH, CELLS[CELL_TYPES.HAZE]);
+    const atmosphericFeatures = runAutogenerators(dungeon, 1);
+    return annotateCells(atmosphericFeatures);
 };
 
 const flattenLayers = layers => {
     const flattenedDungeon = gridFromDimensions(HEIGHT, WIDTH, 0);
-    const flattenedColors = gridFromDimensions(HEIGHT, WIDTH, COLORS.ROCK);
+    const flattenedColors = gridFromDimensions(
+        HEIGHT,
+        WIDTH,
+        CELLS[CELL_TYPES.ROCK].color
+    );
     let lowerCell;
     let currentCell;
     let bg;
@@ -1252,11 +1267,12 @@ const flattenLayers = layers => {
     for (let i = 0; i < layers.length; i++) {
         for (let row = 0; row < HEIGHT; row++) {
             for (let col = 0; col < WIDTH; col++) {
-                if (i > 0) {
-                    debugger;
-                    lowerCell = layers[i - 1][row][col];
-                }
+                lowerCell = flattenedDungeon[row][col];
                 currentCell = layers[i][row][col];
+                if (currentCell.constant === CELL_TYPES.EMPTY) {
+                    flattenedDungeon[row][col] = lowerCell;
+                    continue;
+                }
                 flattenedDungeon[row][col] = { ...layers[i][row][col] };
                 ({ bg, fg } = colorizeCell({
                     cell: currentCell,
@@ -1264,19 +1280,23 @@ const flattenLayers = layers => {
                     row,
                     col
                 }));
-                debugger;
                 if (lowerCell) {
                     if (currentCell.flags.YIELD_LETTER) {
                         flattenedDungeon[row][col].letter = lowerCell.letter;
                     }
-                    if (currentCell.color.opacity) {
+                    if (currentCell.color == undefined) {
+                        debugger;
+                    }
+                    if (bg.alpha() < 1) {
                         bg = flattenedColors[row][col].bg.mix(
                             bg,
-                            currentCell.color.opacity
+                            bg.alpha()
                         );
+                    }
+                    if (fg.alpha() < 1) {
                         fg = flattenedColors[row][col].fg.mix(
                             fg,
-                            currentCell.color.opacity
+                            fg.alpha()
                         );
                     }
                 }
@@ -1307,10 +1327,14 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
     dungeon = addLakes(dungeon);
     // add NESW walls first to give torches a place to attach
     dungeon = finishWalls(dungeon, false);
-    dungeon = runAutogenerators(dungeon);
+    const features = runAutogenerators(dungeon);
     dungeon = finishWalls(dungeon, true);
 
-    const layers = [annotateCells(dungeon), addAtmosphericLayer(dungeon)];
+    const layers = [
+        annotateCells(dungeon),
+        annotateCells(features),
+        addAtmosphericLayer(dungeon)
+    ];
 
     const { flattenedDungeon, flattenedColors } = flattenLayers(layers);
 

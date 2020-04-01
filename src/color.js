@@ -121,7 +121,8 @@ const colorizeCell = ({ baseColor, noise, variance }) => {
     return Color({
         r,
         g,
-        b
+        b,
+        alpha: baseColor.alpha === undefined ? 1 : baseColor.alpha
     });
 };
 
@@ -183,7 +184,7 @@ const colorizeCellTwoPointOh = ({ cell, noiseMaps, row, col }) => {
             return {
                 type: "hex",
                 fg: Color(cell.color.fg),
-                bg: Color(cell.color.bg),
+                bg: Color(cell.color.bg)
             };
         } catch (e) {
             debugger;
