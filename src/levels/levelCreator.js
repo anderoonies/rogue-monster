@@ -34,7 +34,7 @@ const DUNGEON_FEATURE_CATALOG = require("../constants").DUNGEON_FEATURE_CATALOG;
 const colorizeDungeon = require("../color").colorizeDungeon;
 const colorizeCell = require("../color").colorizeCell;
 const makeNoiseMaps = require("../color").makeNoiseMaps;
-const lightDungeon = require('../light').lightDungeon;
+const lightDungeon = require("../light").lightDungeon;
 
 const {
     coordinatesAreInMap,
@@ -864,7 +864,10 @@ const createWreath = ({
                         if (
                             coordinatesAreInMap(i, j) &&
                             dungeon[i][j] !== deepLiquidValue &&
-                            (row - i) ** 2 + (col - j) ** 2 <= wreathWidth ** 2
+                            (row - i) ** 2 + (col - j) ** 2 <=
+                                wreathWidth ** 2 &&
+                            CELLS[hyperspace[i][j]].priority <
+                                CELLS[wreathLiquid].priority
                         ) {
                             hyperspace[i][j] = wreathLiquid;
                         }
@@ -1317,9 +1320,9 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
         dungeon = accreteRoom(dungeon);
     }
     dungeon = addLoops(dungeon);
-    dungeon = addLakes(dungeon);
     // add NESW walls first to give torches a place to attach
     dungeon = finishWalls(dungeon, false);
+    dungeon = addLakes(dungeon);
     const features = runAutogenerators(dungeon);
     dungeon = finishWalls(dungeon, true);
 

@@ -189,7 +189,7 @@ export const CELLS = {
         type: "WALL",
         color: COLORS.WALL,
         letter: "#",
-        priority: 10,
+        priority: 18,
         flags: {
             OBSTRUCTS_PASSIBILITY: true,
             OBSTRUCTS_VISION: true
@@ -243,7 +243,28 @@ export const CELLS = {
         flags: {
             OBSTRUCTS_PASSIBILITY: true,
             OBSTRUCTS_VISION: false
-        }
+        },
+        // GLOWING WATER!!!!
+        // glowLight: {
+        //     // {1000, 1000, 1},		50,		false}
+        //     minRadius: 1000,
+        //     maxRadius: 1000,
+        //     fade: 20,
+        //     color: {
+        //         baseColor: {
+        //             // {75,	38, 15, 0, 15, 	7, 	0, true}
+        //             r: 1,
+        //             g: 1,
+        //             b: 10
+        //         },
+        //         variance: {
+        //             r: 1,
+        //             g: 2,
+        //             b: 0,
+        //             overall: 0,
+        //         }
+        //     }
+        // },
     },
     [CELL_TYPES.SHALLOW_WATER]: {
         type: "SHALLOW_WATER",
