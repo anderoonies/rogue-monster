@@ -34,6 +34,7 @@ const DUNGEON_FEATURE_CATALOG = require("../constants").DUNGEON_FEATURE_CATALOG;
 const colorizeDungeon = require("../color").colorizeDungeon;
 const colorizeCell = require("../color").colorizeCell;
 const makeNoiseMaps = require("../color").makeNoiseMaps;
+const lightDungeon = require("../light").lightDungeon;
 
 const {
     coordinatesAreInMap,
@@ -592,12 +593,16 @@ const designRoomInHyperspace = () => {
             room = makeCARoom();
             break;
     }
-    hyperspace = drawContinuousShapeOnGrid(
-        room,
-        HEIGHT / 2 - Math.floor(room.length / 2),
-        WIDTH / 2 - Math.floor(room[0].length / 2),
-        hyperspace
-    );
+    try {
+        hyperspace = drawContinuousShapeOnGrid(
+            room,
+            HEIGHT / 2 - Math.floor(room.length / 2),
+            WIDTH / 2 - Math.floor(room[0].length / 2),
+            hyperspace
+        );
+    } catch (e) {
+        debugger;
+    }
 
     let doorSites = chooseRandomDoorSites(
         room,
@@ -859,7 +864,10 @@ const createWreath = ({
                         if (
                             coordinatesAreInMap(i, j) &&
                             dungeon[i][j] !== deepLiquidValue &&
-                            (row - i) ** 2 + (col - j) ** 2 <= wreathWidth ** 2
+                            (row - i) ** 2 + (col - j) ** 2 <=
+                                wreathWidth ** 2 &&
+                            CELLS[hyperspace[i][j]].priority <
+                                CELLS[wreathLiquid].priority
                         ) {
                             hyperspace[i][j] = wreathLiquid;
                         }
@@ -880,15 +888,15 @@ const addLakes = dungeon => {
     let blob, minX, minY, maxX, maxY;
 
     for (
-        let lakeMaxHeight = 50, lakeMaxWidth = 50;
+        let lakeMaxHeight = 15, lakeMaxWidth = 30;
         lakeMaxWidth >= 10;
-        lakeMaxHeight -= 5, lakeMaxWidth -= 5
+        lakeMaxHeight -= 2, lakeMaxWidth -= 2
     ) {
         ({ blob, minX, minY, maxX, maxY } = runCA({
             width: 30,
             height: 15,
             rules: CA_RULES.LAKE_GENERATION,
-            nIterations: 6,
+            nIterations: 5,
             startingPercent: 0.45
         }));
 
@@ -1150,9 +1158,6 @@ const runAutogenerators = (dungeon, layer = 0) => {
         if (autogenerator.layer !== layer) {
             continue;
         }
-        if (layer === 1) {
-            debugger;
-        }
         count = Math.min(
             (autogenerator.minIntercept + depth * autogenerator.minSlope) / 100,
             autogenerator.maxNumber
@@ -1284,20 +1289,11 @@ const flattenLayers = layers => {
                     if (currentCell.flags.YIELD_LETTER) {
                         flattenedDungeon[row][col].letter = lowerCell.letter;
                     }
-                    if (currentCell.color == undefined) {
-                        debugger;
-                    }
                     if (bg.alpha() < 1) {
-                        bg = flattenedColors[row][col].bg.mix(
-                            bg,
-                            bg.alpha()
-                        );
+                        bg = flattenedColors[row][col].bg.mix(bg, bg.alpha());
                     }
                     if (fg.alpha() < 1) {
-                        fg = flattenedColors[row][col].fg.mix(
-                            fg,
-                            fg.alpha()
-                        );
+                        fg = flattenedColors[row][col].fg.mix(fg, fg.alpha());
                     }
                 }
                 flattenedColors[row][col] = { bg, fg };
@@ -1324,9 +1320,9 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
         dungeon = accreteRoom(dungeon);
     }
     dungeon = addLoops(dungeon);
-    dungeon = addLakes(dungeon);
     // add NESW walls first to give torches a place to attach
     dungeon = finishWalls(dungeon, false);
+    dungeon = addLakes(dungeon);
     const features = runAutogenerators(dungeon);
     dungeon = finishWalls(dungeon, true);
 
@@ -1337,6 +1333,11 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
     ];
 
     const { flattenedDungeon, flattenedColors } = flattenLayers(layers);
+
+    const lightedColors = lightDungeon({
+        dungeon: flattenedDungeon,
+        colors: flattenedColors
+    });
 
     return {
         rooms,
