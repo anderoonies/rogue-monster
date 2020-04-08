@@ -249,7 +249,7 @@ export const CELLS = {
         type: "SHALLOW_WATER",
         color: COLORS.SHALLOW_WATER,
         letter: "~",
-        priority: 17,
+        priority: 19,
         flags: {
             OBSTRUCTS_PASSIBILITY: false,
             OBSTRUCTS_VISION: false
