@@ -889,12 +889,12 @@ const addLakes = dungeon => {
 
     for (
         let lakeMaxHeight = 15, lakeMaxWidth = 30;
-        lakeMaxWidth >= 10;
+        lakeMaxHeight >= 10;
         lakeMaxHeight -= 2, lakeMaxWidth -= 2
     ) {
         ({ blob, minX, minY, maxX, maxY } = runCA({
-            width: 30,
-            height: 15,
+            width: lakeMaxWidth,
+            height: lakeMaxHeight,
             rules: CA_RULES.LAKE_GENERATION,
             nIterations: 5,
             startingPercent: 0.45
