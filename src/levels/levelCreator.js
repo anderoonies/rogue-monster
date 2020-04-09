@@ -893,7 +893,7 @@ const addLakes = dungeon => {
     let blob, minX, minY, maxX, maxY;
 
     for (
-        let lakeMaxHeight = 10, lakeMaxWidth = 10;
+        let lakeMaxHeight = 30, lakeMaxWidth = 15;
         lakeMaxWidth >= 5;
         lakeMaxHeight -= 2, lakeMaxWidth -= 2
     ) {
