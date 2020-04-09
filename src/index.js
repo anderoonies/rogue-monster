@@ -65,5 +65,5 @@ ReactDOM.render(
     <Provider store={store}>
         <Renderer />
     </Provider>,
-    document.getElementById("flood-root")
+    document.getElementById("lake-root")
 );

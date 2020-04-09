@@ -30,7 +30,7 @@ const Renderer = ({ state, dispatch }) => {
 
             window.addEventListener("mousedown", e => {
                 const dungeonRect = document
-                    .querySelector("#flood-root #dungeon")
+                    .querySelector("#lake-root #dungeon")
                     .getBoundingClientRect();
                 const x = Math.floor((e.x - dungeonRect.left) / 16);
                 const y = Math.floor((e.y - dungeonRect.top) / 18);

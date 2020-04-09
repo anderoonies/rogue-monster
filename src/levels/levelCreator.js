@@ -915,13 +915,12 @@ const addLakes = dungeon => {
             proposedLakeX = randomRange(1 - minX, WIDTH - lakeWidth - minX - 2);
 
             if (
-                // !lakeDisruptsPassability({
-                //     dungeon,
-                //     lake: blob,
-                //     y: proposedLakeY,
-                //     x: proposedLakeX
-                // })
-                true
+                !lakeDisruptsPassability({
+                    dungeon,
+                    lake: blob,
+                    y: proposedLakeY,
+                    x: proposedLakeX
+                })
             ) {
                 dungeon = drawContinuousShapeOnGrid(
                     blob,
@@ -932,12 +931,12 @@ const addLakes = dungeon => {
                         return cell === 1 ? CELL_TYPES.LAKE : 0;
                     }
                 );
-                // dungeon = createWreath({
-                //     wreathLiquid: CELL_TYPES.SHALLOW_WATER,
-                //     wreathWidth: 2,
-                //     dungeon,
-                //     deepLiquidValue: CELL_TYPES.LAKE
-                // });
+                dungeon = createWreath({
+                    wreathLiquid: CELL_TYPES.SHALLOW_WATER,
+                    wreathWidth: 2,
+                    dungeon,
+                    deepLiquidValue: CELL_TYPES.LAKE
+                });
                 break;
             }
         }
