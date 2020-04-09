@@ -767,19 +767,24 @@ const annotateCells = dungeon => {
     });
 };
 
-const floodFill = ({ dungeon, dry, impassible, fillValue }) => {
+const floodFill = ({ dungeon, dry, impassible, fillValue, row, col }) => {
     let floodHyperspace = dungeon.map(row => {
         return row.slice();
     });
     let startY, startX;
-    for (let row = 0; row < dungeon.length; row++) {
-        for (let col = 0; col < dungeon[0].length; col++) {
-            if (dry(dungeon[row][col]) && !impassible(dungeon[row][col])) {
-                startY = row;
-                startX = col;
-                break;
+    if (row === undefined || col === undefined) {
+        for (let row = 0; row < dungeon.length; row++) {
+            for (let col = 0; col < dungeon[0].length; col++) {
+                if (dry(dungeon[row][col]) && !impassible(dungeon[row][col])) {
+                    startY = row;
+                    startX = col;
+                    break;
+                }
             }
         }
+    } else {
+        startY = row;
+        startX = col;
     }
 
     let unvisited = [{ x: startX, y: startY }];
@@ -888,13 +893,13 @@ const addLakes = dungeon => {
     let blob, minX, minY, maxX, maxY;
 
     for (
-        let lakeMaxHeight = 15, lakeMaxWidth = 30;
-        lakeMaxWidth >= 10;
+        let lakeMaxHeight = 10, lakeMaxWidth = 10;
+        lakeMaxWidth >= 5;
         lakeMaxHeight -= 2, lakeMaxWidth -= 2
     ) {
         ({ blob, minX, minY, maxX, maxY } = runCA({
-            width: 30,
-            height: 15,
+            width: lakeMaxWidth,
+            height: lakeMaxHeight,
             rules: CA_RULES.LAKE_GENERATION,
             nIterations: 5,
             startingPercent: 0.45
@@ -910,12 +915,13 @@ const addLakes = dungeon => {
             proposedLakeX = randomRange(1 - minX, WIDTH - lakeWidth - minX - 2);
 
             if (
-                !lakeDisruptsPassability({
-                    dungeon,
-                    lake: blob,
-                    y: proposedLakeY,
-                    x: proposedLakeX
-                })
+                // !lakeDisruptsPassability({
+                //     dungeon,
+                //     lake: blob,
+                //     y: proposedLakeY,
+                //     x: proposedLakeX
+                // })
+                true
             ) {
                 dungeon = drawContinuousShapeOnGrid(
                     blob,
@@ -926,12 +932,12 @@ const addLakes = dungeon => {
                         return cell === 1 ? CELL_TYPES.LAKE : 0;
                     }
                 );
-                dungeon = createWreath({
-                    wreathLiquid: CELL_TYPES.SHALLOW_WATER,
-                    wreathWidth: 2,
-                    dungeon,
-                    deepLiquidValue: CELL_TYPES.LAKE
-                });
+                // dungeon = createWreath({
+                //     wreathLiquid: CELL_TYPES.SHALLOW_WATER,
+                //     wreathWidth: 2,
+                //     dungeon,
+                //     deepLiquidValue: CELL_TYPES.LAKE
+                // });
                 break;
             }
         }
@@ -1323,13 +1329,13 @@ const accreteRooms = (rooms, nRooms, dungeon) => {
     // add NESW walls first to give torches a place to attach
     dungeon = finishWalls(dungeon, false);
     dungeon = addLakes(dungeon);
-    const features = runAutogenerators(dungeon);
+    // const features = runAutogenerators(dungeon);
     dungeon = finishWalls(dungeon, true);
 
     const layers = [
-        annotateCells(dungeon),
-        annotateCells(features),
-        addAtmosphericLayer(dungeon)
+        annotateCells(dungeon)
+        // annotateCells(features),
+        // addAtmosphericLayer(dungeon)
     ];
 
     const { flattenedDungeon, flattenedColors } = flattenLayers(layers);
@@ -1362,5 +1368,6 @@ module.exports = {
     runCAGeneration,
     randomRange,
     drawContinuousShapeOnGrid,
-    findLargestBlob
+    findLargestBlob,
+    floodFill
 };

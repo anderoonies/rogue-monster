@@ -25,7 +25,8 @@ import {
     randomRange,
     drawContinuousShapeOnGrid,
     findLargestBlob,
-    coordinatesAreInMap
+    coordinatesAreInMap,
+    floodFill
 } from "./levels/levelCreator.js";
 import {
     debugRelax,
@@ -51,6 +52,7 @@ import {
     CELLS
 } from "./constants";
 import { pathDistance, traceShortestPath } from "./levels/dijkstra";
+const Color = require("color");
 
 const clipFOV = (player, dungeon) => {
     let adjustedPlayer = {
@@ -299,11 +301,12 @@ const reducer = (state = initialState, action) => {
             ];
         }
         case ACCRETION_INIT: {
-            const { rooms, baseDungeon, dungeon, colorizedDungeon} = accreteRooms(
-                [],
-                45,
-                undefined
-            );
+            const {
+                rooms,
+                baseDungeon,
+                dungeon,
+                colorizedDungeon
+            } = accreteRooms([], 45, undefined);
             return [
                 {
                     ...state,
@@ -461,63 +464,39 @@ const reducer = (state = initialState, action) => {
                     return { ...cell };
                 });
             });
-            if (action.which === "left") {
-                state = {
-                    ...state,
-                    dijkstraLeft: {
-                        x: action.x,
-                        y: action.y
-                    }
-                };
-                annotatedDungeon[state.dijkstraLeft.y][
-                    state.dijkstraLeft.x
-                ].letter = "l";
-            } else if (action.which === "right" && action.x && action.y) {
-                state = {
-                    ...state,
-                    dijkstraRight: {
-                        x: action.x,
-                        y: action.y
-                    }
-                };
-                annotatedDungeon[state.dijkstraRight.y][
-                    state.dijkstraRight.x
-                ].letter = "r";
-            }
-            if (state.dijkstraLeft && state.dijkstraRight) {
-                const { distance, nodeMap } = pathDistance({
-                    start: state.dijkstraLeft,
-                    end: state.dijkstraRight,
+            if (true) {
+                debugger;
+                const floodHyperspace = floodFill({
                     dungeon: state.baseDungeon,
-                    inaccessible: cellConstant => {
-                        return CELLS[cellConstant].flags.OBSTRUCTS_PASSIBILITY;
-                    }
+                    dry: cell => {
+                        return !(cell === 9);
+                    },
+                    impassible: IMPASSIBLE,
+                    fillValue: 9,
+                    row: action.y,
+                    col: action.x
                 });
-                let path;
-                nodeMap.forEach((row, rowIndex) =>
-                    row.forEach((node, colIndex) => {
-                        if (node.distance < Infinity)
-                            annotatedDungeon[rowIndex][colIndex].letter =
-                                node.distance;
-                    })
-                );
-                if (distance !== Infinity) {
-                    path = traceShortestPath(
-                        nodeMap,
-                        state.dijkstraLeft,
-                        state.dijkstraRight
-                    );
-                }
-                if (path) {
-                    path.forEach(node => {
-                        annotatedDungeon[node.y][node.x].letter = "o";
+
+                debugger;
+                const paintedColors = floodHyperspace.map((row, rowIndex) => {
+                    return row.map((cell, colIndex) => {
+                        if (cell === 9) {
+                            return {
+                                ...state.colorizedDungeon[rowIndex][colIndex],
+                                bg: Color("yellow")
+                            };
+                        } else {
+                            return state.colorizedDungeon[rowIndex][colIndex];
+                        }
                     });
-                }
+                });
+
                 return [
                     {
                         ...state,
-                        debugMsg: `It's ${distance} between [${state.dijkstraLeft.y}, ${state.dijkstraLeft.x}] and [${state.dijkstraRight.y}, ${state.dijkstraRight.x}]`,
-                        displayDungeon: annotatedDungeon
+                        debugMsg: "Flooded!",
+                        displayDungeon: annotatedDungeon,
+                        colorizedDungeon: paintedColors
                     },
                     () => {}
                 ];

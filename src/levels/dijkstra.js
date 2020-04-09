@@ -118,7 +118,7 @@ export const pathDistance = ({
             })
             .shift();
     }
-    return { distance: Infinity, nodeMap: "ya baby" };
+    return { distance: Infinity, nodeMap: [[]] };
 };
 
 export const traceShortestPath = (annotatedNodeMap, start, end) => {

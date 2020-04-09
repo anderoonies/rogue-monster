@@ -30,10 +30,10 @@ const Renderer = ({ state, dispatch }) => {
 
             window.addEventListener("mousedown", e => {
                 const dungeonRect = document
-                    .getElementById("dungeon")
+                    .querySelector("#flood-root #dungeon")
                     .getBoundingClientRect();
-                const x = Math.floor((e.x - dungeonRect.left) / 10);
-                const y = Math.floor((e.y - dungeonRect.top) / 10);
+                const x = Math.floor((e.x - dungeonRect.left) / 16);
+                const y = Math.floor((e.y - dungeonRect.top) / 18);
                 if (x < 0 || x > WIDTH || y < 0 || y > HEIGHT) {
                     return;
                 }
